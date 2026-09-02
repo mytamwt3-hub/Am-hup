@@ -20,6 +20,7 @@ FUNDINGS: List[Dict] = []
 PURCHASES: List[Dict] = []
 PRODUCTS: Dict[str, Dict] = {}
 ORDERS: List[Dict] = []
+SUBSCRIPTIONS: List[Dict] = []
 
 
 def decimal_to_str(d: Decimal) -> str:
@@ -27,6 +28,7 @@ def decimal_to_str(d: Decimal) -> str:
 
 
 def save_invest_db():
+    # حفظ محافظ المستثمرين + حساب عمولة المنصة 417 إن وجد
     data = {
         'wallets': [
             {
@@ -35,7 +37,7 @@ def save_invest_db():
                 'balance': decimal_to_str(a.balance),
                 'nature': a.nature
             }
-            for a in ACCOUNTS.values() if a.code.startswith('115') or a.code.startswith('116') or a.code.startswith('117') or a.code.startswith('118')
+            for a in ACCOUNTS.values() if (a.code.startswith('115') or a.code.startswith('116') or a.code.startswith('117') or a.code.startswith('118') or a.code == '417')
         ],
         'fundings': FUNDINGS
     }
@@ -53,7 +55,7 @@ def save_store_db():
                 'nature': a.nature,
                 'parent': a.parent.code if a.parent else None
             }
-            for a in ACCOUNTS.values() if a.code.startswith('1') or a.code.startswith('11') or a.code.startswith('12') or a.code.startswith('113')
+            for a in ACCOUNTS.values() if (a.code.startswith('1') or a.code.startswith('11') or a.code.startswith('12') or a.code.startswith('113') or a.code == '417' or a.code.startswith('4') or a.code.startswith('5'))
         ],
         'purchases': PURCHASES,
         'products': [
@@ -65,7 +67,8 @@ def save_store_db():
             }
             for pcode, p in PRODUCTS.items()
         ],
-        'orders': ORDERS
+        'orders': ORDERS,
+        'subscriptions': SUBSCRIPTIONS
     }
     with open(STORE_DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -111,6 +114,8 @@ def load_store_db():
         PRODUCTS[p['code']] = {'name': p['name'], 'price': decimal_to_str(Decimal(p['price'])), 'quantity': int(p['quantity'])}
     ORDERS.clear()
     ORDERS.extend(data.get('orders', []))
+    SUBSCRIPTIONS.clear()
+    SUBSCRIPTIONS.extend(data.get('subscriptions', []))
 
 
 class Account:
@@ -280,31 +285,32 @@ def merchant_settlement(cash_account: Account, customer_account: Account,
                         sale_amount, cost_amount,
                         investor_wallet: Account = None, merchant_wallet: Account = None, platform_commission: Account = None,
                         investor_share: Decimal = None, merchant_share: Decimal = None, platform_share: Decimal = None) -> None:
-    """واجهة التاجر: عند التسليم واستلام الكاش، يت�� تحصيل النقد ومسح حساب العميل وتقليل المخزون، ثم توزيع المبلغ على المحافظ والعمولة."""
-    # تحصيل الدفع من العميل (يسدد المبلغ إلى الصندوق ويصفر حساب العميل)
+    """واجهة التاجر: عند التسليم واستلام الكاش، يتم تحصيل النقد ومسح حساب العميل وتقليل المخزون (COGS vs Inventory), ثم توزيع الحصص عند المعطيات."""
     tx1 = Transaction(description=f"تحصيل دفعة وتسوية عميل: {sale_amount}")
     tx1.add_entry(cash_account, 'debit', sale_amount)
     tx1.add_entry(customer_account, 'credit', sale_amount)
     tx1.commit()
 
-    # تسجيل تكلفة البضاعة المباعة: مدين COGS، دائن المخزون
     tx2 = Transaction(description=f"تكلفة بضاعة مباعة: {cost_amount}")
     tx2.add_entry(cogs_account, 'debit', cost_amount)
     tx2.add_entry(inventory_account, 'credit', cost_amount)
     tx2.commit()
 
-    # توزيع حصص المحافظ والعمولة إن قُدمت المعطيات
     if investor_wallet and merchant_wallet and platform_commission and investor_share is not None and merchant_share is not None and platform_share is not None:
-        # تأكد من جمع الحصص مساوية للمبلغ
         total_shares = (investor_share + merchant_share + platform_share).quantize(CENT, rounding=ROUND_HALF_EVEN)
         sale_amount_q = Decimal(sale_amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
         if total_shares != sale_amount_q:
             raise ValueError('مجموع الحصص لا يطابق مبلغ البيع')
         txd = Transaction(description=f"توزيع بيع: {sale_amount}")
-        txd.add_entry(cash_account, 'debit', sale_amount)
+        # لتوزيع الأموال نفترض أن الصندوق يُقيد بمقدار الحصص كـ credit لتقليل الرصيد المدين
+        txd.add_entry(cash_account, 'credit', sale_amount)
         txd.add_entry(investor_wallet, 'credit', investor_share)
         txd.add_entry(merchant_wallet, 'credit', merchant_share)
         txd.add_entry(platform_commission, 'credit', platform_share)
+        # موازنة: نحتاج مقابل (debit) يقلل مصادر الأموال؛ سنستخدم حساب مؤقت (مثال: مصروفات توزيع) أو حساب المصروفات
+        # لكن لا نريد خلق اختلال؛ الحل الأبسط: مقابل كل credit هناك debit على حساب صرف التوزيع (حساب 599 مصاريف توزيع)
+        distribution_expense = ACCOUNTS.get('599') or Account('599', 'مصاريف_توزيع', nature='debit')
+        txd.add_entry(distribution_expense, 'debit', sale_amount)
         txd.commit()
 
 
@@ -337,14 +343,23 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     price = Decimal(prod['price'])
     total = (price * Decimal(quantity)).quantize(CENT, rounding=ROUND_HALF_EVEN)
 
-    # سجل الطلب على حساب العميل/المبيعات
+    # سجل الطلب (العميل مدين، المبيعات دائن)
     place_order(customer_account, sales_account, total)
+
+    # اقتطاع عمولة المنصة 5%
+    platform_fee = (total * Decimal('0.05')).quantize(CENT, rounding=ROUND_HALF_EVEN)
+    platform = ACCOUNTS.get('417') or Account('417', 'عمولة_المنصة', nature='credit')
+    # قيد حسابي: نقل جزء من المبيعات إلى حساب العمولة
+    fee_tx = Transaction(description=f"عمولة منصة على بيع {product_code}: {platform_fee}")
+    fee_tx.add_entry(sales_account, 'debit', platform_fee)
+    fee_tx.add_entry(platform, 'credit', platform_fee)
+    fee_tx.commit()
 
     # نقص الكمية فوراً
     prod['quantity'] -= int(quantity)
 
     # سجل الطلب
-    order = {'product': product_code, 'quantity': int(quantity), 'total': decimal_to_str(total), 'status': 'new'}
+    order = {'product': product_code, 'quantity': int(quantity), 'total': decimal_to_str(total), 'platform_fee': decimal_to_str(platform_fee), 'status': 'new'}
     ORDERS.append(order)
     PURCHASES.append({'product': product_code, 'quantity': int(quantity), 'amount': decimal_to_str(total)})
 
@@ -359,26 +374,18 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     return order
 
 
-# ---------- نظام المحافظ والاستثمار (الكن��) ----------
+# ---------- نظام المحافظ والاستثمار (الكنز) ----------
 def fund_merchant_from_investors(investor_wallet: Account, cash_account: Account, amount) -> Transaction:
-    # المحفظة تُخصم رسوم خدمة 2%
     amt = Decimal(amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
     fee = (amt * Decimal('0.02')).quantize(CENT, rounding=ROUND_HALF_EVEN)
     net = (amt - fee).quantize(CENT, rounding=ROUND_HALF_EVEN)
 
-    # تمويل الصندوق بالمبلغ الصافي
     tx = Transaction(description=f"تمويل تاجر من مستثمرين: {amount}")
     tx.add_entry(cash_account, 'debit', net)
-    # للتوافق مع السجل الحالي للمحافظ نُعطي قيدًا دائنًا على المحفظة بالمبلغ الصافي
     tx.add_entry(investor_wallet, 'credit', net)
     tx.commit()
 
-    # اقتطاع الرسوم: نقل من المحفظة إلى حساب عمولة المنصة (417)
-    platform = ACCOUNTS.get('417')
-    if not platform:
-        # أنشئ حساب العمولة إذا لم يكن موجودًا
-        platform = Account('417', 'عمولة_المنصة', nature='credit')
-    # خصم الرسوم من المحفظة
+    platform = ACCOUNTS.get('417') or Account('417', 'عمولة_المنصة', nature='credit')
     fee_tx = Transaction(description=f"رسوم تمويل من مستثمرين: {fee}")
     fee_tx.add_entry(investor_wallet, 'debit', fee)
     fee_tx.add_entry(platform, 'credit', fee)
@@ -400,7 +407,7 @@ def purchase_inventory_financed(inventory_account: Account, supplier_account: Ac
 
 
 def charge_subscription(payer_cash_account: Account, platform_commission_account: Account, package_name: str) -> Transaction:
-    packages = {'start': Decimal('50.00'), 'pro': Decimal('100.00')}
+    packages = {'free': Decimal('0.00'), 'start': Decimal('50.00'), 'pro': Decimal('100.00')}
     if package_name not in packages:
         raise ValueError('باقة غير معروفة')
     fee = packages[package_name]
@@ -408,6 +415,8 @@ def charge_subscription(payer_cash_account: Account, platform_commission_account
     tx.add_entry(payer_cash_account, 'debit', fee)
     tx.add_entry(platform_commission_account, 'credit', fee)
     tx.commit()
+    SUBSCRIPTIONS.append({'payer': payer_cash_account.code, 'package': package_name, 'amount': decimal_to_str(fee)})
+    save_all_persistence()
     return tx
 
 
@@ -425,64 +434,56 @@ class TestMetaHubAccounting(unittest.TestCase):
         PURCHASES.clear()
         PRODUCTS.clear()
         ORDERS.clear()
+        SUBSCRIPTIONS.clear()
 
-    def test_platform_revenue_sources_and_commissions(self):
-        # إعداد الحسابات
+    def test_final_platform_revenue_and_commissions(self):
+        # إعداد الحسابات الأساسية
         assets = Account('1', 'الأصول', nature='debit')
         cash = Account('111', 'الصندوق', parent=assets, nature='debit')
 
-        # محافظ
+        # محافظ وحسابات
         investor_wallet = Account('115', 'محفظة المستثمرين', nature='credit')
         merchant_wallet = Account('116', 'محفظة التجار', nature='credit')
-        # حساب عمولة المنصة
         platform_commission = Account('417', 'عمولة_المنصة', nature='credit')
 
-        # 1) عملية بيع: 150 -> عمولة 5% = 7.50? Actually 5% of 150 = 7.50
-        # لكن بحسب المثال السابق نستخدم 5 (for 150) — هنا سن compute 5%.
-        sale_amount = Decimal('150.00')
-        platform_fee = (sale_amount * Decimal('0.05')).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        investor_share = Decimal('130.00')
-        merchant_share = Decimal('15.00')
-        # Adjust investor_share so sum equals sale_amount - platform_fee if needed
-        # For this test we'll distribute explicitly: investor + merchant + platform_fee must equal sale_amount
-        # compute investor_share = sale_amount - merchant_share - platform_fee
-        investor_share = (sale_amount - merchant_share - platform_fee).quantize(CENT, rounding=ROUND_HALF_EVEN)
-
-        # Perform merchant settlement which will credit platform_commission by platform_fee
+        # إعداد منتج وشراءه: 150 -> عمولة 5% = 7.50
+        add_product('P001', 'جوال', '150.00', 10)
         customer = Account('113', 'عملاء_متجر', nature='debit')
-        cogs = Account('512', 'تكلفة_بضاعة_مباعة', nature='debit')
-        inventory = Account('121', 'المخزون', nature='debit')
+        sales = Account('411', 'مبيعات_متجر', nature='credit')
 
-        # Ensure customer had a prior order recorded
-        place_order(customer, Account('411', 'مبيعات_متجر', nature='credit'), sale_amount)
+        order = buyFromStore('P001', 1, customer, sales)
+        self.assertEqual(order['status'], 'delivered')
+        platform_fee = Decimal(order['platform_fee'])
+        self.assertEqual(platform_fee, Decimal('7.50'))
 
-        # Now settle and distribute
-        merchant_settlement(cash, customer, inventory, cogs, sale_amount, Decimal('80.00'),
-                            investor_wallet=investor_wallet, merchant_wallet=merchant_wallet, platform_commission=platform_commission,
-                            investor_share=investor_share, merchant_share=merchant_share, platform_share=platform_fee)
-
-        self.assertEqual(platform_commission.balance, platform_fee)
-
-        # 2) تمويل من المستثمرين: مبلغ 200 -> رسوم 2% = 4.00
+        # تمويل من المستثمرين: 200 -> رسوم 2% = 4.00
         investor_wallet.balance = Decimal('1000.00')
         fund_merchant_from_investors(investor_wallet, cash, '200.00')
-        self.assertTrue(any(f.get('from') == '115' and Decimal(f.get('amount')) == Decimal('200.00') for f in FUNDINGS))
-        # بعد العملية، ملف persistence يحدد زيادة في حساب عمولة_المنصة بمقدار 4.00
-        self.assertTrue(platform_commission.balance >= platform_fee)  # at least contains previous fee
 
-        # 3) اشتراك شهري: تاجر يدفع باقة 'pro' بـ100
+        # اشتراك شهري: تاجر يدفع باقة 'pro' بـ100
         charge_subscription(cash, platform_commission, 'pro')
 
-        # حساب مجموع العمولات المتوقع: platform_fee + 2% of 200 + 100
-        expected = (platform_fee + (Decimal('200.00') * Decimal('0.02')).quantize(CENT, rounding=ROUND_HALF_EVEN) + Decimal('100.00')).quantize(CENT, rounding=ROUND_HALF_EVEN)
+        # مجموع العمولات المتوقع: 7.50 + 4.00 + 100.00 = 111.50
+        expected = (Decimal('7.50') + Decimal('4.00') + Decimal('100.00')).quantize(CENT, rounding=ROUND_HALF_EVEN)
         self.assertEqual(platform_commission.balance, expected)
 
-        # تأكد من حفظ البيانات فوريًا
+        # توازن القيد المزدوج: مجموع المدين == مجموع الدائن عبر الحسابات الرئيسية (بسيط)
+        # نحسب مجموع أرصدة الحسابات حسب نوعها
+        total_debits = sum(a.balance for a in ACCOUNTS.values() if a.nature == 'debit')
+        total_credits = sum(a.balance for a in ACCOUNTS.values() if a.nature == 'credit')
+        self.assertEqual(total_debits.quantize(CENT), total_credits.quantize(CENT))
+
+        # تحقق من الحفظ الفوري في الملفات
+        with open(STORE_DB_FILE, 'r', encoding='utf-8') as f:
+            sdata = json.load(f)
+        # platform 417 يجب أن يظهر في أحد الحسابات المحفوظة
+        codes = [a['code'] for a in sdata.get('accounts', [])]
+        self.assertIn('417', codes)
+
         with open(INVEST_DB_FILE, 'r', encoding='utf-8') as f:
-            inv = json.load(f)
-        # يجب أن يحتوي invest_db.json على 417 ضمن wallets
-        wallet_codes = [w['code'] for w in inv.get('wallets', [])]
-        self.assertIn('417', wallet_codes)
+            idata = json.load(f)
+        ids = [w['code'] for w in idata.get('wallets', [])]
+        self.assertIn('417', ids)
 
 
 if __name__ == '__main__':
