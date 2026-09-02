@@ -1,9 +1,12 @@
 import unittest
-from decimal import Decimal, InvalidOperation, getcontext
+from decimal import Decimal, InvalidOperation, getcontext, ROUND_HALF_EVEN
 from typing import Dict
 
-# ضبط دقة عشرية مناسبة
+# ضبط دقة عشرية مناسبة والـ rounding الافتراضي
 getcontext().prec = 28
+getcontext().rounding = ROUND_HALF_EVEN
+
+CENT = Decimal('0.01')
 
 class Account:
     def __init__(self, code: str, name: str, parent: 'Account' = None, nature: str = 'debit'):
@@ -18,6 +21,7 @@ class Account:
     def _apply_change(self, delta: Decimal):
         if not isinstance(delta, Decimal):
             raise TypeError("delta يجب أن يكون من نوع Decimal")
+        # نفترض أن التغير قد تم تقريبه مسبقاً عند الإنشاء
         self.balance += delta
         if self.parent:
             self.parent._apply_change(delta)
@@ -35,7 +39,8 @@ class Entry:
             raise ValueError("المبلغ يجب أن يكون رقمياً صالحاً")
         if amt <= 0:
             raise ValueError("المبلغ يجب أن يكون موجباً")
-        # استخدام تنسيق ثابت إن رغبت: amt = amt.quantize(Decimal('0.01'))
+        # تقريــب تلقائي إلى منزلتين عشريتين (الهللة/القرش)
+        amt = amt.quantize(CENT, rounding=ROUND_HALF_EVEN)
         self.account = account
         self.side = side
         self.amount = amt
@@ -46,13 +51,14 @@ class Entry:
 class Transaction:
     """
     تمثل قيد محاسبي متعدد الأسطر. قبل التطبيق نتحقق أن مجموع المدين = مجموع الدائن.
-    عند التطبيق نحسب التغير الصافي لكل حساب على شكل Decimal ثم نطبقه.
+    عند التطبيق نحسب التغير ��لصافي لكل حساب على شكل Decimal ثم نطبقه.
     """
     def __init__(self, description: str = ""):
         self.description = description
         self.entries = []
 
     def add_entry(self, account: Account, side: str, amount):
+        # Entry سيقوم بالتقريب عند الإنشاء
         self.entries.append(Entry(account, side, amount))
 
     def commit(self):
@@ -83,16 +89,16 @@ class Employee:
         self.name = name
         self.emp_id = emp_id
         try:
-            self.base_salary = Decimal(base_salary)
-            self.allowances = Decimal(allowances)
-            self.deductions = Decimal(deductions)
+            self.base_salary = Decimal(base_salary).quantize(CENT, rounding=ROUND_HALF_EVEN)
+            self.allowances = Decimal(allowances).quantize(CENT, rounding=ROUND_HALF_EVEN)
+            self.deductions = Decimal(deductions).quantize(CENT, rounding=ROUND_HALF_EVEN)
         except (InvalidOperation, TypeError):
             raise ValueError("الراتب/البدلات/الخصومات يجب أن تكون أرقاماً صالحة")
         if self.base_salary < 0 or self.allowances < 0 or self.deductions < 0:
             raise ValueError("القيم المالية لا يجب أن تكون سالبة")
 
     def net_pay(self) -> Decimal:
-        return self.base_salary + self.allowances - self.deductions
+        return (self.base_salary + self.allowances - self.deductions).quantize(CENT, rounding=ROUND_HALF_EVEN)
 
 def accrue_salary(employee: Employee, expense_account: Account, liability_account: Account) -> Transaction:
     """تسجل استحقاق راتب: مدين لمصروفات الرواتب (511) ودائن لرواتب مستحقة (221) بالصافي"""
@@ -126,11 +132,11 @@ class TestMetaHubAccounting(unittest.TestCase):
 
         # عملية بيع نقدي: مدين للصندوق، دائن للمبيعات
         tx = Transaction(description="بيع نقدي")
-        tx.add_entry(cash, 'debit', '1500.00')
-        tx.add_entry(sales, 'credit', '1500.00')
+        tx.add_entry(cash, 'debit', '1500.004')  # سيتقرب إلى 1500.00
+        tx.add_entry(sales, 'credit', '1500.004')
         tx.commit()
 
-        # توقعات: زيادة في الصندوق (+1500)، هذا ينعكس في الأصل (+1500)
+        # توقعات: زيادة في الصندوق (+1500.00)، هذا ينعكس في الأصل (+1500.00)
         self.assertEqual(cash.balance, Decimal('1500.00'))
         self.assertEqual(assets.balance, Decimal('1500.00'))
         self.assertEqual(sales.balance, Decimal('1500.00'))
@@ -145,7 +151,7 @@ class TestMetaHubAccounting(unittest.TestCase):
         before_sales = sales.balance
 
         tx = Transaction(description="معاملة غير متزنة")
-        tx.add_entry(cash, 'debit', '1000.00')
+        tx.add_entry(cash, 'debit', '1000.005')  # يقرب إلى 1000.01
         tx.add_entry(sales, 'credit', '900.00')
 
         with self.assertRaises(ValueError):
@@ -162,15 +168,15 @@ class TestMetaHubAccounting(unittest.TestCase):
         revenue = Account('411', 'المبيعات', nature='credit')
 
         tx = Transaction('إيداع ومبيعات')
-        tx.add_entry(bank, 'debit', '500.25')
-        tx.add_entry(current, 'debit', '99.75')
-        tx.add_entry(revenue, 'credit', '600.00')
+        tx.add_entry(bank, 'debit', '500.255')  # يقرب إلى 500.26
+        tx.add_entry(current, 'debit', '99.745')  # يقرب إلى 99.75
+        tx.add_entry(revenue, 'credit', '600.005')  # يقرب إ��ى 600.01
         tx.commit()
 
-        self.assertEqual(bank.balance, Decimal('500.25'))
-        self.assertEqual(current.balance, Decimal('600.00'))  # 500.25 + 99.75
-        self.assertEqual(root.balance, Decimal('600.00'))
-        self.assertEqual(revenue.balance, Decimal('600.00'))
+        self.assertEqual(bank.balance, Decimal('500.26'))
+        self.assertEqual(current.balance, Decimal('600.01'))  # 500.26 + 99.75
+        self.assertEqual(root.balance, Decimal('600.01'))
+        self.assertEqual(revenue.balance, Decimal('600.01'))
 
     def test_salary_accrual_and_payment(self):
         # إعداد الحسابات الهرمية والضرورية للرواتب
@@ -184,12 +190,12 @@ class TestMetaHubAccounting(unittest.TestCase):
         payroll_liability = Account('221', 'رواتب مستحقة', parent=liabilities, nature='credit')
 
         # أنشئ موظف
-        emp = Employee(name='أحمد', emp_id='E001', base_salary='2000.00', allowances='200.00', deductions='150.00')
+        emp = Employee(name='أحمد', emp_id='E001', base_salary='2000.005', allowances='200.004', deductions='150')
         net = emp.net_pay()
-        # تحقق من حساب صافي الراتب بدقة
-        self.assertEqual(net, Decimal('2050.00'))  # 2000 + 200 - 150
+        # تحقق من حساب صافي الراتب بدقة وبالتقريب إلى سنتين
+        self.assertEqual(net, Decimal('2050.01'))  # 2000.01 + 200.00 - 150.00 = 2050.01
 
-        # استحقاق الراتب (قيد): مدين 511، دائن 221
+        # ��ستحقاق الراتب (قيد): مدين 511، دائن 221
         accrue_tx = accrue_salary(emp, payroll_expense, payroll_liability)
         # بعد الاستحقاق: مصروفات الرواتب وزيادة في الخصوم
         self.assertEqual(payroll_expense.balance, net)
