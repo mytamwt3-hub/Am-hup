@@ -14,13 +14,15 @@ CENT = Decimal('0.01')
 INVEST_DB_FILE = 'invest_db.json'
 STORE_DB_FILE = 'store_db.json'
 
-# سجل عالمي للحسابات ولعمليات التمويل/المشتريات
+# سجلات عالمية
 ACCOUNTS: Dict[str, 'Account'] = {}
 FUNDINGS: List[Dict] = []
 PURCHASES: List[Dict] = []
 PRODUCTS: Dict[str, Dict] = {}
 ORDERS: List[Dict] = []
 SUBSCRIPTIONS: List[Dict] = []
+INVENTORY: Dict[str, Dict[str, int]] = {}  # محطات المخزون (مثل '121') -> {product_code: qty}
+CLOSED_REVENUES: List[Dict] = []
 
 
 def decimal_to_str(d: Decimal) -> str:
@@ -28,7 +30,6 @@ def decimal_to_str(d: Decimal) -> str:
 
 
 def save_invest_db():
-    # حفظ محافظ المستثمرين + حساب عمولة المنصة 417 إن وجد
     data = {
         'wallets': [
             {
@@ -55,7 +56,7 @@ def save_store_db():
                 'nature': a.nature,
                 'parent': a.parent.code if a.parent else None
             }
-            for a in ACCOUNTS.values() if (a.code.startswith('1') or a.code.startswith('11') or a.code.startswith('12') or a.code.startswith('113') or a.code == '417' or a.code.startswith('4') or a.code.startswith('5'))
+            for a in ACCOUNTS.values() if (a.code.startswith('1') or a.code.startswith('11') or a.code.startswith('12') or a.code.startswith('113') or a.code == '417' or a.code.startswith('4') or a.code.startswith('5') or a.code.startswith('2') or a.code.startswith('6'))
         ],
         'purchases': PURCHASES,
         'products': [
@@ -68,7 +69,9 @@ def save_store_db():
             for pcode, p in PRODUCTS.items()
         ],
         'orders': ORDERS,
-        'subscriptions': SUBSCRIPTIONS
+        'subscriptions': SUBSCRIPTIONS,
+        'inventory': INVENTORY,
+        'closed_revenues': CLOSED_REVENUES
     }
     with open(STORE_DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -116,10 +119,14 @@ def load_store_db():
     ORDERS.extend(data.get('orders', []))
     SUBSCRIPTIONS.clear()
     SUBSCRIPTIONS.extend(data.get('subscriptions', []))
+    INVENTORY.clear()
+    INVENTORY.update(data.get('inventory', {}))
+    CLOSED_REVENUES.clear()
+    CLOSED_REVENUES.extend(data.get('closed_revenues', []))
 
 
 class Account:
-    def __init__(self, code: str, name: str, parent: 'Account' = None, nature: str = 'debit'):
+    def __init__(self, code: str, name: str, parent: 'Account' = None, nature: str = 'debit', is_temporary: bool = False):
         if nature not in ('debit', 'credit'):
             raise ValueError("الطبيعة يجب أن تكون 'debit' (مدين) أو 'credit' (دائن)")
         self.code = code
@@ -127,6 +134,7 @@ class Account:
         self.parent = parent
         self.nature = nature
         self.balance = Decimal('0.00')
+        self.is_temporary = is_temporary
         ACCOUNTS[self.code] = self
 
     def _apply_change(self, delta: Decimal):
@@ -188,142 +196,19 @@ class Transaction:
         save_all_persistence()
 
 
-# ---------- نظام شؤون الموظفين والرواتب (متكامل) ----------
-class Employee:
-    def __init__(self, name: str, emp_id: str, base_salary, allowances=0, deductions=0,
-                 email: str = '', shift_type: str = 'full-time', leaves_entitled=0, leaves_used=0,
-                 job_type: str = 'عامل'):
+# ---------- نموذج المستخدم/التاجر/الإدمن ----------
+class Merchant:
+    def __init__(self, merchant_id: str, name: str, role: str = 'Merchant', is_annual_subscription_paid: bool = False):
+        self.merchant_id = merchant_id
         self.name = name
-        self.emp_id = emp_id
-        self.email = email
-        self.shift_type = shift_type
-        self.job_type = job_type
-        try:
-            self.base_salary = Decimal(base_salary).quantize(CENT, rounding=ROUND_HALF_EVEN)
-            self.allowances = Decimal(allowances).quantize(CENT, rounding=ROUND_HALF_EVEN)
-            self.deductions = Decimal(deductions).quantize(CENT, rounding=ROUND_HALF_EVEN)
-            self.leaves_entitled = Decimal(leaves_entitled)
-            self.leaves_used = Decimal(leaves_used)
-        except (InvalidOperation, TypeError):
-            raise ValueError("الراتب/البدلات/الخصومات/الإجازات يجب أن تكون أرقاماً صالحة")
-        if self.base_salary < 0 or self.allowances < 0 or self.deductions < 0:
-            raise ValueError("القيم المالية لا يجب أن تكون سالبة")
+        self.role = role  # 'Admin' or 'Merchant'
+        self.is_annual_subscription_paid = is_annual_subscription_paid
 
-    def absence_deduction(self) -> Decimal:
-        absent_days = (self.leaves_used - self.leaves_entitled)
-        if absent_days <= 0:
-            return Decimal('0.00')
-        daily = (self.base_salary / Decimal('30')).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        deduction = (daily * absent_days).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        return deduction
-
-    def total_deductions(self) -> Decimal:
-        total = (self.deductions + self.absence_deduction()).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        return total
-
-    def net_pay(self) -> Decimal:
-        net = (self.base_salary + self.allowances - self.total_deductions()).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        return net
+    def __repr__(self):
+        return f"Merchant(id={self.merchant_id}, name={self.name}, role={self.role}, annual_paid={self.is_annual_subscription_paid})"
 
 
-def accrue_salary(employee: Employee, expense_account: Account, liability_account: Account) -> Transaction:
-    net = employee.net_pay()
-    if net <= Decimal('0.00'):
-        raise ValueError("صافي الراتب يجب أن يكون موجباً للاقتطاع كاستحقاق")
-    tx = Transaction(description=f"استحقاق راتب: {employee.emp_id} - {employee.name}")
-    tx.add_entry(expense_account, 'debit', net)
-    tx.add_entry(liability_account, 'credit', net)
-    tx.commit()
-    return tx
-
-
-def pay_salary(employee: Employee, liability_account: Account, cash_account: Account) -> Transaction:
-    net = employee.net_pay()
-    if net <= Decimal('0.00'):
-        raise ValueError("صافي الراتب يجب أن يكون موجباً لعملية الدفع")
-    tx = Transaction(description=f"صرف راتب: {employee.emp_id} - {employee.name}")
-    tx.add_entry(liability_account, 'debit', net)
-    tx.add_entry(cash_account, 'credit', net)
-    tx.commit()
-    return tx
-
-
-# ---------- تسوية الجرد (التوالف والناقص) ----------
-def record_inventory_loss(amount, loss_account: Account, inventory_account: Account) -> Transaction:
-    try:
-        amt = Decimal(amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
-    except (InvalidOperation, TypeError):
-        raise ValueError("المبلغ يجب أن يكون رقمياً صالحاً")
-    if amt <= Decimal('0.00'):
-        raise ValueError("مبلغ التسوية يجب أن يكون موجباً")
-    tx = Transaction(description=f"تسوية جردية - توالف: {amt}")
-    tx.add_entry(loss_account, 'debit', amt)
-    tx.add_entry(inventory_account, 'credit', amt)
-    tx.commit()
-    return tx
-
-
-# ---------- نظام المتجر الإلكتروني (واجهتين) ----------
-def place_order(customer_account: Account, sales_account: Account, amount) -> Transaction:
-    tx = Transaction(description=f"طلب متجر: {amount}")
-    tx.add_entry(customer_account, 'debit', amount)
-    tx.add_entry(sales_account, 'credit', amount)
-    tx.commit()
-    return tx
-
-
-def apply_coupon(discount_account: Account, customer_account: Account, discount_amount) -> Transaction:
-    tx = Transaction(description=f"كوبون خصم: {discount_amount}")
-    tx.add_entry(discount_account, 'debit', discount_amount)
-    tx.add_entry(customer_account, 'credit', discount_amount)
-    tx.commit()
-    return tx
-
-
-def merchant_settlement(cash_account: Account, customer_account: Account,
-                        inventory_account: Account, cogs_account: Account,
-                        sale_amount, cost_amount,
-                        investor_wallet: Account = None, merchant_wallet: Account = None, platform_commission: Account = None,
-                        investor_share: Decimal = None, merchant_share: Decimal = None, platform_share: Decimal = None) -> None:
-    """واجهة التاجر: عند التسليم واستلام الكاش، يتم تحصيل النقد ومسح حساب العميل وتقليل المخزون (COGS vs Inventory), ثم توزيع الحصص عند المعطيات."""
-    tx1 = Transaction(description=f"تحصيل دفعة وتسوية عميل: {sale_amount}")
-    tx1.add_entry(cash_account, 'debit', sale_amount)
-    tx1.add_entry(customer_account, 'credit', sale_amount)
-    tx1.commit()
-
-    tx2 = Transaction(description=f"تكلفة بضاعة مباعة: {cost_amount}")
-    tx2.add_entry(cogs_account, 'debit', cost_amount)
-    tx2.add_entry(inventory_account, 'credit', cost_amount)
-    tx2.commit()
-
-    if investor_wallet and merchant_wallet and platform_commission and investor_share is not None and merchant_share is not None and platform_share is not None:
-        total_shares = (investor_share + merchant_share + platform_share).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        sale_amount_q = Decimal(sale_amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        if total_shares != sale_amount_q:
-            raise ValueError('مجموع الحصص لا يطابق مبلغ البيع')
-        txd = Transaction(description=f"توزيع بيع: {sale_amount}")
-        # لتوزيع الأموال نفترض أن الصندوق يُقيد بمقدار الحصص كـ credit لتقليل الرصيد المدين
-        txd.add_entry(cash_account, 'credit', sale_amount)
-        txd.add_entry(investor_wallet, 'credit', investor_share)
-        txd.add_entry(merchant_wallet, 'credit', merchant_share)
-        txd.add_entry(platform_commission, 'credit', platform_share)
-        # موازنة: نحتاج مقابل (debit) يقلل مصادر الأموال؛ سنستخدم حساب مؤقت (مثال: مصروفات توزيع) أو حساب المصروفات
-        # لكن لا نريد خلق اختلال؛ الحل الأبسط: مقابل كل credit هناك debit على حساب صرف التوزيع (حساب 599 مصاريف توزيع)
-        distribution_expense = ACCOUNTS.get('599') or Account('599', 'مصاريف_توزيع', nature='debit')
-        txd.add_entry(distribution_expense, 'debit', sale_amount)
-        txd.commit()
-
-
-# ---------- إدارة المنتجات وواجهة المتجر ----------
-def add_product(code: str, name: str, price, quantity: int):
-    try:
-        price_d = Decimal(price).quantize(CENT, rounding=ROUND_HALF_EVEN)
-    except (InvalidOperation, TypeError):
-        raise ValueError('سعر المنتج يجب أن يكون رقمياً صالحاً')
-    PRODUCTS[code] = {'name': name, 'price': decimal_to_str(price_d), 'quantity': int(quantity)}
-    save_all_persistence()
-
-
+# ---------- وظائف المتجر الأساسية ----------
 def renderStore() -> str:
     html = ['<div class="store">']
     for code, p in PRODUCTS.items():
@@ -332,7 +217,15 @@ def renderStore() -> str:
     return '\n'.join(html)
 
 
-def buyFromStore(product_code: str, quantity: int, customer_account: Account, sales_account: Account) -> Dict:
+def place_order(customer_account: Account, sales_account: Account, amount) -> Transaction:
+    tx = Transaction(description=f"طلب متجر: {amount}")
+    tx.add_entry(customer_account, 'debit', amount)
+    tx.add_entry(sales_account, 'credit', amount)
+    tx.commit()
+    return tx
+
+
+def buyFromStore(product_code: str, quantity: int, customer_account: Account, sales_account: Account, inventory_station: str = '121') -> Dict:
     if product_code not in PRODUCTS:
         raise ValueError('المنتج غير موجود')
     if quantity <= 0:
@@ -349,14 +242,16 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     # اقتطاع عمولة المنصة 5%
     platform_fee = (total * Decimal('0.05')).quantize(CENT, rounding=ROUND_HALF_EVEN)
     platform = ACCOUNTS.get('417') or Account('417', 'عمولة_المنصة', nature='credit')
-    # قيد حسابي: نقل جزء من المبيعات إلى حساب العمولة
     fee_tx = Transaction(description=f"عمولة منصة على بيع {product_code}: {platform_fee}")
     fee_tx.add_entry(sales_account, 'debit', platform_fee)
     fee_tx.add_entry(platform, 'credit', platform_fee)
     fee_tx.commit()
 
-    # نقص الكمية فوراً
+    # نقص الكمية فوراً من المنتجات والمخزن اللحظي
     prod['quantity'] -= int(quantity)
+    INVENTORY.setdefault(inventory_station, {})
+    INVENTORY[inventory_station].setdefault(product_code, 0)
+    INVENTORY[inventory_station][product_code] = INVENTORY[inventory_station][product_code] - int(quantity)
 
     # سجل الطلب
     order = {'product': product_code, 'quantity': int(quantity), 'total': decimal_to_str(total), 'platform_fee': decimal_to_str(platform_fee), 'status': 'new'}
@@ -365,7 +260,7 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
 
     save_all_persistence()
 
-    # محاكاة تحوّل الحالة تلقائياً
+    # محاكاة حالة الطلب تلقائياً
     order['status'] = 'preparing'
     order['status'] = 'shipped'
     order['status'] = 'delivered'
@@ -374,7 +269,7 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     return order
 
 
-# ---------- نظام المحافظ والاستثمار (الكنز) ----------
+# ---------- نظام التمويل/المحافظ (رسوم 2%) ----------
 def fund_merchant_from_investors(investor_wallet: Account, cash_account: Account, amount) -> Transaction:
     amt = Decimal(amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
     fee = (amt * Decimal('0.02')).quantize(CENT, rounding=ROUND_HALF_EVEN)
@@ -396,16 +291,6 @@ def fund_merchant_from_investors(investor_wallet: Account, cash_account: Account
     return tx
 
 
-def purchase_inventory_financed(inventory_account: Account, supplier_account: Account, amount) -> Transaction:
-    tx = Transaction(description=f"شراء مخزون ممول: {amount}")
-    tx.add_entry(inventory_account, 'debit', amount)
-    tx.add_entry(supplier_account, 'credit', amount)
-    tx.commit()
-    PURCHASES.append({'inventory': inventory_account.code, 'supplier': supplier_account.code, 'amount': decimal_to_str(Decimal(amount))})
-    save_all_persistence()
-    return tx
-
-
 def charge_subscription(payer_cash_account: Account, platform_commission_account: Account, package_name: str) -> Transaction:
     packages = {'free': Decimal('0.00'), 'start': Decimal('50.00'), 'pro': Decimal('100.00')}
     if package_name not in packages:
@@ -420,7 +305,47 @@ def charge_subscription(payer_cash_account: Account, platform_commission_account
     return tx
 
 
-# ---------- اختبارات الوحدة النهائية (العمولات/الاشتراكات) ----------
+# ---------- دالة الإقفال المالي للإدمن ----------
+def execute_financial_closing(admin_user: Merchant, merchant: Merchant):
+    # صلاحية: يجب أن يكون المستخدم إدمن
+    if admin_user.role != 'Admin':
+        raise PermissionError('ليس لديك صلاحية إجراء الإقفال المالي — مطلوب دور Admin')
+
+    # شرط سداد الباقة السنوية
+    if not merchant.is_annual_subscription_paid:
+        raise ValueError('لا يمكن إتمام الإقفال المالي مالم يتم سداد قيمة الباقة السنوية للمنصة أولاً')
+
+    # ضع الأموال المغلقة في سجل مغلق
+    platform = ACCOUNTS.get('417')
+    if platform:
+        closed = {'merchant_id': merchant.merchant_id, 'amount': decimal_to_str(platform.balance)}
+        CLOSED_REVENUES.append(closed)
+        # تصفير حساب العمولة
+        platform.balance = Decimal('0.00')
+
+    # تصفير الحسابات المؤقتة (مثال: أي حساب مع is_temporary True أو حساب الكود 599)
+    for acc in list(ACCOUNTS.values()):
+        if getattr(acc, 'is_temporary', False) or acc.code == '599':
+            acc.balance = Decimal('0.00')
+
+    save_all_persistence()
+    return True
+
+
+# ---------- وظائف إضافية للمخزون والمنتجات ----------
+def add_product(code: str, name: str, price, quantity: int):
+    try:
+        price_d = Decimal(price).quantize(CENT, rounding=ROUND_HALF_EVEN)
+    except (InvalidOperation, TypeError):
+        raise ValueError('سعر المنتج يجب أن يكون رقمياً صالحاً')
+    PRODUCTS[code] = {'name': name, 'price': decimal_to_str(price_d), 'quantity': int(quantity)}
+    # تأكد من مسجل في المخزن اللحظي 121
+    INVENTORY.setdefault('121', {})
+    INVENTORY['121'][code] = INVENTORY['121'].get(code, 0) + int(quantity)
+    save_all_persistence()
+
+
+# ---------- اختبارات الوحدة النهائية (محدثة) ----------
 class TestMetaHubAccounting(unittest.TestCase):
     def setUp(self):
         # حذف ملفات التخزين إن وجدت لضمان بيئة اختبار نظيفة
@@ -435,55 +360,60 @@ class TestMetaHubAccounting(unittest.TestCase):
         PRODUCTS.clear()
         ORDERS.clear()
         SUBSCRIPTIONS.clear()
+        INVENTORY.clear()
+        CLOSED_REVENUES.clear()
 
-    def test_final_platform_revenue_and_commissions(self):
-        # إعداد الحسابات الأساسية
+        # حسابات أساسية
         assets = Account('1', 'الأصول', nature='debit')
-        cash = Account('111', 'الصندوق', parent=assets, nature='debit')
+        self.cash = Account('111', 'الصندوق', parent=assets, nature='debit')
+        self.sales = Account('411', 'مبيعات_متجر', nature='credit')
+        self.platform = Account('417', 'عمولة_المنصة', nature='credit')
+        # حساب مخزن لحظي 121 (كمحاسبة كمية سنخزن منفصلاً)
+        self.inventory_account = Account('121', 'المخزن_اللحظي', nature='debit')
+        # حساب مؤقت مثلاً لمصاريف التوزيع
+        self.distribution_expense = Account('599', 'مصاريف_توزيع', nature='debit', is_temporary=True)
 
-        # محافظ وحسابات
-        investor_wallet = Account('115', 'محفظة المستثمرين', nature='credit')
-        merchant_wallet = Account('116', 'محفظة التجار', nature='credit')
-        platform_commission = Account('417', 'عمولة_المنصة', nature='credit')
-
-        # إعداد منتج وشراءه: 150 -> عمولة 5% = 7.50
+        # عينات منتجات
         add_product('P001', 'جوال', '150.00', 10)
+        add_product('P002', 'ساعة', '50.00', 20)
+
+    def test_buy_reduces_product_and_inventory_121(self):
         customer = Account('113', 'عملاء_متجر', nature='debit')
-        sales = Account('411', 'مبيعات_متجر', nature='credit')
+        order = buyFromStore('P001', 2, customer, self.sales)
+        self.assertEqual(PRODUCTS['P001']['quantity'], 8)
+        # inventory station 121 should decrease accordingly
+        self.assertEqual(INVENTORY['121']['P001'], 8)
 
-        order = buyFromStore('P001', 1, customer, sales)
-        self.assertEqual(order['status'], 'delivered')
-        platform_fee = Decimal(order['platform_fee'])
-        self.assertEqual(platform_fee, Decimal('7.50'))
+        # buy another product
+        buyFromStore('P002', 3, customer, self.sales)
+        self.assertEqual(PRODUCTS['P002']['quantity'], 17)
+        self.assertEqual(INVENTORY['121']['P002'], 17)
 
-        # تمويل من المستثمرين: 200 -> رسوم 2% = 4.00
-        investor_wallet.balance = Decimal('1000.00')
-        fund_merchant_from_investors(investor_wallet, cash, '200.00')
+    def test_financial_closing_rejected_if_annual_not_paid(self):
+        admin = Merchant('A01', 'super', role='Admin')
+        merchant = Merchant('M01', 'StoreOne', role='Merchant', is_annual_subscription_paid=False)
+        # ensure platform has some balance
+        self.platform.balance = Decimal('50.00')
+        with self.assertRaises(ValueError) as cm:
+            execute_financial_closing(admin, merchant)
+        self.assertEqual(str(cm.exception), 'لا يمكن إتمام الإقفال المالي مالم يتم سداد قيمة الباقة السنوية للمنصة أولاً')
+        # platform balance should remain unchanged
+        self.assertEqual(self.platform.balance, Decimal('50.00'))
 
-        # اشتراك شهري: تاجر يدفع باقة 'pro' بـ100
-        charge_subscription(cash, platform_commission, 'pro')
-
-        # مجموع العمولات المتوقع: 7.50 + 4.00 + 100.00 = 111.50
-        expected = (Decimal('7.50') + Decimal('4.00') + Decimal('100.00')).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        self.assertEqual(platform_commission.balance, expected)
-
-        # توازن القيد المزدوج: مجموع المدين == مجموع الدائن عبر الحسابات الرئيسية (بسيط)
-        # نحسب مجموع أرصدة الحسابات حسب نوعها
-        total_debits = sum(a.balance for a in ACCOUNTS.values() if a.nature == 'debit')
-        total_credits = sum(a.balance for a in ACCOUNTS.values() if a.nature == 'credit')
-        self.assertEqual(total_debits.quantize(CENT), total_credits.quantize(CENT))
-
-        # تحقق من الحفظ الفوري في الملفات
-        with open(STORE_DB_FILE, 'r', encoding='utf-8') as f:
-            sdata = json.load(f)
-        # platform 417 يجب أن يظهر في أحد الحسابات المحفوظة
-        codes = [a['code'] for a in sdata.get('accounts', [])]
-        self.assertIn('417', codes)
-
-        with open(INVEST_DB_FILE, 'r', encoding='utf-8') as f:
-            idata = json.load(f)
-        ids = [w['code'] for w in idata.get('wallets', [])]
-        self.assertIn('417', ids)
+    def test_financial_closing_success_if_paid_and_zero_accounts(self):
+        admin = Merchant('A01', 'super', role='Admin')
+        merchant = Merchant('M01', 'StoreOne', role='Merchant', is_annual_subscription_paid=True)
+        # put balances
+        self.platform.balance = Decimal('111.50')
+        self.distribution_expense.balance = Decimal('10.00')
+        # execute closing
+        res = execute_financial_closing(admin, merchant)
+        self.assertTrue(res)
+        # platform zeroed and closed revenues recorded
+        self.assertEqual(self.platform.balance, Decimal('0.00'))
+        self.assertIn({'merchant_id': 'M01', 'amount': '111.50'}, CLOSED_REVENUES)
+        # temporary accounts zeroed
+        self.assertEqual(self.distribution_expense.balance, Decimal('0.00'))
 
 
 if __name__ == '__main__':
