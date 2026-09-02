@@ -2,7 +2,7 @@ import unittest
 from decimal import Decimal, InvalidOperation, getcontext
 from typing import Dict
 
-# ضبط دقة عشرية مناسبة (النتائج ستكون دقيقة؛ سنستخدم quantize عند الحاجة لتقليل الكسور)
+# ضبط دقة عشرية مناسبة
 getcontext().prec = 28
 
 class Account:
@@ -73,10 +73,50 @@ class Transaction:
             signed = e.amount if e.side == e.account.nature else -e.amount
             net_changes[e.account] = net_changes.get(e.account, Decimal('0.00')) + signed
 
-        # طبق التغيرات (تطبيق واحد لكل ح��اب، وPropagation داخل _apply_change)
+        # طبق التغيرات (تطبيق واحد لكل حساب، وPropagation داخل _apply_change)
         for account, delta in net_changes.items():
             account._apply_change(delta)
 
+# ---------- نظام شؤون الموظفين والرواتب ----------
+class Employee:
+    def __init__(self, name: str, emp_id: str, base_salary, allowances=0, deductions=0):
+        self.name = name
+        self.emp_id = emp_id
+        try:
+            self.base_salary = Decimal(base_salary)
+            self.allowances = Decimal(allowances)
+            self.deductions = Decimal(deductions)
+        except (InvalidOperation, TypeError):
+            raise ValueError("الراتب/البدلات/الخصومات يجب أن تكون أرقاماً صالحة")
+        if self.base_salary < 0 or self.allowances < 0 or self.deductions < 0:
+            raise ValueError("القيم المالية لا يجب أن تكون سالبة")
+
+    def net_pay(self) -> Decimal:
+        return self.base_salary + self.allowances - self.deductions
+
+def accrue_salary(employee: Employee, expense_account: Account, liability_account: Account) -> Transaction:
+    """تسجل استحقاق راتب: مدين لمصروفات الرواتب (511) ودائن لرواتب مستحقة (221) بالصافي"""
+    net = employee.net_pay()
+    if net <= Decimal('0.00'):
+        raise ValueError("صافي الراتب يجب أن يكون موجباً للاقتطاع كاستحقاق")
+    tx = Transaction(description=f"استحقاق راتب: {employee.emp_id} - {employee.name}")
+    tx.add_entry(expense_account, 'debit', net)
+    tx.add_entry(liability_account, 'credit', net)
+    tx.commit()
+    return tx
+
+def pay_salary(employee: Employee, liability_account: Account, cash_account: Account) -> Transaction:
+    """تسجل صرف راتب: مدين لرواتب مستحقة (221) ودائن للصندوق (111) عند الدفع"""
+    net = employee.net_pay()
+    if net <= Decimal('0.00'):
+        raise ValueError("صافي الراتب يجب أن يكون موجباً لعملية الدفع")
+    tx = Transaction(description=f"صرف راتب: {employee.emp_id} - {employee.name}")
+    tx.add_entry(liability_account, 'debit', net)
+    tx.add_entry(cash_account, 'credit', net)
+    tx.commit()
+    return tx
+
+# ---------- اختبارات الوحدة ----------
 class TestMetaHubAccounting(unittest.TestCase):
     def test_double_entry_cash_sale(self):
         # إعداد الحسابات
@@ -93,7 +133,6 @@ class TestMetaHubAccounting(unittest.TestCase):
         # توقعات: زيادة في الصندوق (+1500)، هذا ينعكس في الأصل (+1500)
         self.assertEqual(cash.balance, Decimal('1500.00'))
         self.assertEqual(assets.balance, Decimal('1500.00'))
-        # المبيعات طبيعتها دائنة فتزداد بقيمة 1500
         self.assertEqual(sales.balance, Decimal('1500.00'))
 
     def test_reject_unbalanced_transaction_and_no_side_effects(self):
@@ -101,7 +140,6 @@ class TestMetaHubAccounting(unittest.TestCase):
         cash = Account("111", "الصندوق", parent=assets, nature='debit')
         sales = Account("411", "المبيعات", nature='credit')
 
-        # تذكر الأرصدة قبل المحاولة
         before_cash = cash.balance
         before_assets = assets.balance
         before_sales = sales.balance
@@ -113,13 +151,11 @@ class TestMetaHubAccounting(unittest.TestCase):
         with self.assertRaises(ValueError):
             tx.commit()
 
-        # تأكد أن الأرصدة لم تتغير بعد فشل الحفظ
         self.assertEqual(cash.balance, before_cash)
         self.assertEqual(assets.balance, before_assets)
         self.assertEqual(sales.balance, before_sales)
 
     def test_multiple_entries_and_hierarchy(self):
-        # اختبار مع أطراف متعددة لنفس الحساب وتدرج هرمي
         root = Account('0', 'الميزان', nature='debit')
         current = Account('11', 'الحالي', parent=root, nature='debit')
         bank = Account('112', 'البنك', parent=current, nature='debit')
@@ -135,6 +171,36 @@ class TestMetaHubAccounting(unittest.TestCase):
         self.assertEqual(current.balance, Decimal('600.00'))  # 500.25 + 99.75
         self.assertEqual(root.balance, Decimal('600.00'))
         self.assertEqual(revenue.balance, Decimal('600.00'))
+
+    def test_salary_accrual_and_payment(self):
+        # إعداد الحسابات الهرمية والضرورية للرواتب
+        assets = Account("1", "الأصول", nature='debit')
+        cash = Account("111", "الصندوق", parent=assets, nature='debit')
+
+        expenses = Account('5', 'المصروفات', nature='debit')
+        payroll_expense = Account('511', 'مصروفات الرواتب', parent=expenses, nature='debit')
+
+        liabilities = Account('2', 'الخصوم', nature='credit')
+        payroll_liability = Account('221', 'رواتب مستحقة', parent=liabilities, nature='credit')
+
+        # أنشئ موظف
+        emp = Employee(name='أحمد', emp_id='E001', base_salary='2000.00', allowances='200.00', deductions='150.00')
+        net = emp.net_pay()
+        # تحقق من حساب صافي الراتب بدقة
+        self.assertEqual(net, Decimal('2050.00'))  # 2000 + 200 - 150
+
+        # استحقاق الراتب (قيد): مدين 511، دائن 221
+        accrue_tx = accrue_salary(emp, payroll_expense, payroll_liability)
+        # بعد الاستحقاق: مصروفات الرواتب وزيادة في الخصوم
+        self.assertEqual(payroll_expense.balance, net)
+        self.assertEqual(expenses.balance, net)
+        self.assertEqual(payroll_liability.balance, net)
+
+        # صرف الراتب (قيد): مدين 221 (يقلل الخصوم)، دائن 111 (ينقص النقد)
+        pay_tx = pay_salary(emp, payroll_liability, cash)
+        # بعد الصرف: الخصوم تعود للصفر، والصندوق نقص
+        self.assertEqual(payroll_liability.balance, Decimal('0.00'))
+        self.assertEqual(cash.balance, -net)  # since cash was credited (انخفاض في الرصيد المدين)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
