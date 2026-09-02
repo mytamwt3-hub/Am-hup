@@ -2,6 +2,7 @@ import unittest
 import json
 import os
 import re
+from datetime import datetime
 from decimal import Decimal, InvalidOperation, getcontext, ROUND_HALF_EVEN
 from typing import Dict, List
 
@@ -24,6 +25,7 @@ ORDERS: List[Dict] = []
 SUBSCRIPTIONS: List[Dict] = []
 INVENTORY: Dict[str, Dict[str, int]] = {}  # محطات المخزون (مثل '121') -> {product_code: qty}
 CLOSED_REVENUES: List[Dict] = []
+CCTV_INVOICE_LOGS: List[Dict] = []  # سجلات مزامنة الكاميرا والفواتير
 
 
 def decimal_to_str(d: Decimal) -> str:
@@ -72,7 +74,8 @@ def save_store_db():
         'orders': ORDERS,
         'subscriptions': SUBSCRIPTIONS,
         'inventory': INVENTORY,
-        'closed_revenues': CLOSED_REVENUES
+        'closed_revenues': CLOSED_REVENUES,
+        'cctv_invoice_logs': CCTV_INVOICE_LOGS
     }
     with open(STORE_DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -124,6 +127,8 @@ def load_store_db():
     INVENTORY.update(data.get('inventory', {}))
     CLOSED_REVENUES.clear()
     CLOSED_REVENUES.extend(data.get('closed_revenues', []))
+    CCTV_INVOICE_LOGS.clear()
+    CCTV_INVOICE_LOGS.extend(data.get('cctv_invoice_logs', []))
 
 
 class Account:
@@ -226,6 +231,34 @@ def place_order(customer_account: Account, sales_account: Account, amount) -> Tr
     return tx
 
 
+def sync_invoice_with_cctv(invoice_id: str, when: datetime):
+    """
+    محاكاة إرسال بيانات الفاتورة لسيرفر الكاميرا: نحفظ سجل يحتوي invoice_id والتاريخ والوقت ومقطع وهمي.
+    يتم حفظه في CCTV_INVOICE_LOGS و persist فوراً.
+    """
+    entry = {
+        'invoice_id': invoice_id,
+        'date': when.date().isoformat(),
+        'time': when.time().strftime('%H:%M:%S'),
+        'video_ref': f"/cctv/streams/day_{when.date().isoformat()}.mp4#t={when.time().hour}h{when.time().minute}m{when.time().second}s"
+    }
+    CCTV_INVOICE_LOGS.append(entry)
+    save_all_persistence()
+    return entry
+
+
+def admin_search_cctv_by_invoice(admin_user: Merchant, invoice_id: str = None, date_str: str = None) -> List[Dict]:
+    if admin_user.role != 'Admin':
+        raise PermissionError('المستخدم ليس إدمن للوصول لسجلات الكاميرا')
+    results = []
+    for e in CCTV_INVOICE_LOGS:
+        if invoice_id and e.get('invoice_id') == invoice_id:
+            results.append(e)
+        elif date_str and e.get('date') == date_str:
+            results.append(e)
+    return results
+
+
 def buyFromStore(product_code: str, quantity: int, customer_account: Account, sales_account: Account, inventory_station: str = '121') -> Dict:
     if product_code not in PRODUCTS:
         raise ValueError('المنتج غير موجود')
@@ -254,8 +287,12 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     INVENTORY[inventory_station].setdefault(product_code, 0)
     INVENTORY[inventory_station][product_code] = INVENTORY[inventory_station][product_code] - int(quantity)
 
+    # إنشاء invoice id
+    invoice_id = f"INV{len(ORDERS)+1:06d}"
+    now = datetime.now()
+
     # سجل الطلب
-    order = {'product': product_code, 'quantity': int(quantity), 'total': decimal_to_str(total), 'platform_fee': decimal_to_str(platform_fee), 'status': 'new'}
+    order = {'invoice_id': invoice_id, 'product': product_code, 'quantity': int(quantity), 'total': decimal_to_str(total), 'platform_fee': decimal_to_str(platform_fee), 'status': 'new', 'created_at': now.isoformat()}
     ORDERS.append(order)
     PURCHASES.append({'product': product_code, 'quantity': int(quantity), 'amount': decimal_to_str(total)})
 
@@ -266,84 +303,11 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     order['status'] = 'shipped'
     order['status'] = 'delivered'
 
+    # بعد إتمام البيع ندفع تسجيل إلى نظام الكاميرا
+    sync_invoice_with_cctv(invoice_id, now)
+
     save_all_persistence()
     return order
-
-
-# ---------- نظام التمويل/المحافظ (رسوم 2%) ----------
-def fund_merchant_from_investors(investor_wallet: Account, cash_account: Account, amount) -> Transaction:
-    amt = Decimal(amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
-    fee = (amt * Decimal('0.02')).quantize(CENT, rounding=ROUND_HALF_EVEN)
-    net = (amt - fee).quantize(CENT, rounding=ROUND_HALF_EVEN)
-
-    tx = Transaction(description=f"تمويل تاجر من مستثمرين: {amount}")
-    tx.add_entry(cash_account, 'debit', net)
-    tx.add_entry(investor_wallet, 'credit', net)
-    tx.commit()
-
-    platform = ACCOUNTS.get('417') or Account('417', 'عمولة_المنصة', nature='credit')
-    fee_tx = Transaction(description=f"رسوم تمويل من مستثمرين: {fee}")
-    fee_tx.add_entry(investor_wallet, 'debit', fee)
-    fee_tx.add_entry(platform, 'credit', fee)
-    fee_tx.commit()
-
-    FUNDINGS.append({'from': investor_wallet.code, 'to': cash_account.code, 'amount': decimal_to_str(amt)})
-    save_all_persistence()
-    return tx
-
-
-def charge_subscription(payer_cash_account: Account, platform_commission_account: Account, package_name: str) -> Transaction:
-    packages = {'free': Decimal('0.00'), 'start': Decimal('50.00'), 'pro': Decimal('100.00')}
-    if package_name not in packages:
-        raise ValueError('باقة غير معروفة')
-    fee = packages[package_name]
-    tx = Transaction(description=f"اشتراك شهري - {package_name}: {fee}")
-    tx.add_entry(payer_cash_account, 'debit', fee)
-    tx.add_entry(platform_commission_account, 'credit', fee)
-    tx.commit()
-    SUBSCRIPTIONS.append({'payer': payer_cash_account.code, 'package': package_name, 'amount': decimal_to_str(fee)})
-    save_all_persistence()
-    return tx
-
-
-# ---------- دالة الإقفال المالي للإدمن ----------
-def execute_financial_closing(admin_user: Merchant, merchant: Merchant):
-    # صلاحية: يجب أن يكون المستخدم إدمن
-    if admin_user.role != 'Admin':
-        raise PermissionError('ليس لديك صلاحية إجراء الإقفال المالي — مطلوب دور Admin')
-
-    # شرط سداد الباقة السنوية
-    if not merchant.is_annual_subscription_paid:
-        raise ValueError('لا يمكن إتمام الإقفال المالي مالم يتم سداد قيمة الباقة السنوية للمنصة أولاً')
-
-    # ضع الأموال المغلقة في سجل مغلق
-    platform = ACCOUNTS.get('417')
-    if platform:
-        closed = {'merchant_id': merchant.merchant_id, 'amount': decimal_to_str(platform.balance)}
-        CLOSED_REVENUES.append(closed)
-        # تصفير حساب العمولة
-        platform.balance = Decimal('0.00')
-
-    # تصفير الحسابات المؤقتة (مثال: أي حساب مع is_temporary True أو حساب الكود 599)
-    for acc in list(ACCOUNTS.values()):
-        if getattr(acc, 'is_temporary', False) or acc.code == '599':
-            acc.balance = Decimal('0.00')
-
-    save_all_persistence()
-    return True
-
-
-# ---------- وظائف إضافية للمخزون والمنتجات ----------
-def add_product(code: str, name: str, price, quantity: int):
-    try:
-        price_d = Decimal(price).quantize(CENT, rounding=ROUND_HALF_EVEN)
-    except (InvalidOperation, TypeError):
-        raise ValueError('سعر المنتج يجب أن يكون رقمياً صالحاً')
-    PRODUCTS[code] = {'name': name, 'price': decimal_to_str(price_d), 'quantity': int(quantity)}
-    # تأكد من مسجل في المخزن اللحظي 121
-    INVENTORY.setdefault('121', {})
-    INVENTORY['121'][code] = INVENTORY['121'].get(code, 0) + int(quantity)
-    save_all_persistence()
 
 
 # ---------- AI Accountant Agent (محاسب ذكي) ----------
@@ -392,7 +356,6 @@ def ai_parse_and_record_invoice(text: str, target_inventory_station: str = '121'
     qty_added = 0
     if product_code and product_code in PRODUCTS:
         price = Decimal(PRODUCTS[product_code]['price'])
-        # كمية منتظمة = floor(amount / price)
         try:
             qty_added = int((amount / price).to_integral_value(rounding=ROUND_HALF_EVEN))
         except Exception:
@@ -438,7 +401,7 @@ def ai_generate_financial_summary() -> Dict:
     return summary
 
 
-# ---------- اختبارات الوحدة النهائية (محدثة مع AI) ----------
+# ---------- اختبارات الوحدة النهائية (محدثة مع CCTV & AI) ----------
 class TestMetaHubAccounting(unittest.TestCase):
     def setUp(self):
         # حذف ملفات التخزين إن وجدت لضمان بيئة اختبار نظيفة
@@ -455,6 +418,7 @@ class TestMetaHubAccounting(unittest.TestCase):
         SUBSCRIPTIONS.clear()
         INVENTORY.clear()
         CLOSED_REVENUES.clear()
+        CCTV_INVOICE_LOGS.clear()
 
         # حسابات أساسية
         assets = Account('1', 'الأصول', nature='debit')
@@ -531,6 +495,24 @@ class TestMetaHubAccounting(unittest.TestCase):
         # values should be parseable as Decimal
         Decimal(summary['total_assets'])
         Decimal(summary['cash_111'])
+
+    def test_cctv_invoice_synchronization(self):
+        customer = Account('113', 'عملاء_متجر', nature='debit')
+        order = buyFromStore('P001', 1, customer, self.sales)
+        invoice_id = order['invoice_id']
+        # after buyFromStore, CCTV_INVOICE_LOGS should have an entry for this invoice
+        found = [e for e in CCTV_INVOICE_LOGS if e.get('invoice_id') == invoice_id]
+        self.assertTrue(len(found) == 1)
+        entry = found[0]
+        self.assertIn('date', entry)
+        self.assertIn('time', entry)
+        self.assertIn('video_ref', entry)
+
+        # admin search should retrieve it
+        admin = Merchant('A01', 'super', role='Admin')
+        res = admin_search_cctv_by_invoice(admin, invoice_id=invoice_id)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0]['invoice_id'], invoice_id)
 
 
 if __name__ == '__main__':
