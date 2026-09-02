@@ -83,7 +83,7 @@ class Transaction:
         for account, delta in net_changes.items():
             account._apply_change(delta)
 
-# ---------- نظام شؤون الموظفين والرواتب (محدَّث) ----------
+# ---------- نظام شؤون الموظفين والرواتب (متكامل) ----------
 class Employee:
     def __init__(self, name: str, emp_id: str, base_salary, allowances=0, deductions=0,
                  email: str = '', shift_type: str = 'full-time', leaves_entitled=0, leaves_used=0,
@@ -204,17 +204,9 @@ def merchant_settlement(cash_account: Account, customer_account: Account,
 
 # ---------- نظام المحافظ والاستثمار (الكنز) ----------
 def fund_merchant_from_investors(investor_wallet: Account, cash_account: Account, amount) -> Transaction:
-    """دورة تمويل: تحويل من محفظة المستثمرين إلى الصندوق (تمويل للتاجر)
-    ملاحظة: اتجاه الدفاتر يعتمد على طبيعة الحسابات؛ هنا نفترض أن wallet accounts طبيعتها 'credit' (زيادة عند credit)
-    ونريد أن تنعكس الأموال في الصندوق (111) بزيادة في الجانب المدين.
-    سنقوم بإنشاء قيد يَدين الصندوق ويُقِر المستثمرين (أي يخفض رصيد المحفظة إذا كانت مدين-طبيعة)،
-    لكن لاعتماد ثابت نستخدم المدخل الذي يطابق متطلباتك: نَدَيْنُ الصندوق ونقرضُ المحفظة.
-    """
-    # سنفترض investor_wallet.nature == 'credit' (زيادة عند قيد credit)
+    """دورة تمويل: تحويل من محفظة المستثمرين إلى الصندوق (تمويل للتاجر)"""
     tx = Transaction(description=f"تمويل تاجر من مستثمرين: {amount}")
     tx.add_entry(cash_account, 'debit', amount)
-    # لتقليل رصيد المحفظة (أخذ أموال منها)، نضع قيدًا دائنًا لها إذا كانت طبيعتها 'credit' يزيد بها
-    # المستخدم طلب سابقًا تسجيل: من 115 (مدين) إلى 111 (دائن) - لكن للمطابقة العملية سننفّذ: credit على investor_wallet
     tx.add_entry(investor_wallet, 'credit', amount)
     tx.commit()
     return tx
@@ -228,8 +220,109 @@ def purchase_inventory_financed(inventory_account: Account, supplier_account: Ac
     tx.commit()
     return tx
 
-# ---------- اختبار دورة بيع موزَّع الأرباح والمحافظ ----------
+# ---------- اختبارات الوحدة الشاملة ----------
 class TestMetaHubAccounting(unittest.TestCase):
+    def test_double_entry_cash_sale(self):
+        # إعداد حسابات أساسية
+        assets = Account("1", "الأصول", nature='debit')
+        cash = Account("111", "الصندوق", parent=assets, nature='debit')
+        sales = Account("411", "المبيعات", nature='credit')
+
+        # عملية بيع نقدي: مدين للصندوق، دائن للمبيعات
+        tx = Transaction(description="بيع نقدي")
+        tx.add_entry(cash, 'debit', '1500.00')
+        tx.add_entry(sales, 'credit', '1500.00')
+        tx.commit()
+
+        self.assertEqual(cash.balance, Decimal('1500.00'))
+        self.assertEqual(assets.balance, Decimal('1500.00'))
+        self.assertEqual(sales.balance, Decimal('1500.00'))
+
+    def test_reject_unbalanced_transaction_and_no_side_effects(self):
+        assets = Account("1", "الأصول", nature='debit')
+        cash = Account("111", "الصندوق", parent=assets, nature='debit')
+        sales = Account("411", "المبيعات", nature='credit')
+
+        before_cash = cash.balance
+        before_assets = assets.balance
+        before_sales = sales.balance
+
+        tx = Transaction(description="معاملة غير متزنة")
+        tx.add_entry(cash, 'debit', '1000.01')
+        tx.add_entry(sales, 'credit', '900.00')
+
+        with self.assertRaises(ValueError):
+            tx.commit()
+
+        self.assertEqual(cash.balance, before_cash)
+        self.assertEqual(assets.balance, before_assets)
+        self.assertEqual(sales.balance, before_sales)
+
+    def test_multiple_entries_and_hierarchy(self):
+        root = Account('0', 'الميزان', nature='debit')
+        current = Account('11', 'الحالي', parent=root, nature='debit')
+        bank = Account('112', 'البنك', parent=current, nature='debit')
+        revenue = Account('411', 'المبيعات', nature='credit')
+
+        tx = Transaction('إيداع و��بيعات')
+        tx.add_entry(bank, 'debit', '500.26')
+        tx.add_entry(current, 'debit', '99.75')
+        tx.add_entry(revenue, 'credit', '600.01')
+        tx.commit()
+
+        self.assertEqual(bank.balance, Decimal('500.26'))
+        self.assertEqual(current.balance, Decimal('600.01'))
+        self.assertEqual(root.balance, Decimal('600.01'))
+        self.assertEqual(revenue.balance, Decimal('600.01'))
+
+    def test_salary_accrual_and_payment_with_leaves_and_new_accounts(self):
+        # إعداد الحسابات الهرمية والضرورية للرواتب مع أرقام حسابات محدَّثة
+        assets = Account("1", "الأصول", nature='debit')
+        cash = Account("111", "الصندوق", parent=assets, nature='debit')
+
+        expenses = Account('5', 'المصروفات', nature='debit')
+        payroll_expense = Account('521', 'مصروفات الرواتب', parent=expenses, nature='debit')  # 521
+
+        liabilities = Account('2', 'الخصوم', nature='credit')
+        payroll_liability = Account('213', 'رواتب مستحقة', parent=liabilities, nature='credit')  # 213
+
+        # أنشئ موظف مع إجازة مستخدمة تزيد عن المستحقة (يسبب خصم غياب)
+        emp = Employee(name='أحمد', emp_id='E001', base_salary='2000.00', allowances='200.00',
+                       deductions='150.00', leaves_entitled=2, leaves_used=4, email='a@example.com', job_type='كاشير')
+        absence_ded = emp.absence_deduction()
+        self.assertEqual(absence_ded, Decimal('133.34'))
+
+        net = emp.net_pay()
+        self.assertEqual(net, Decimal('1916.66'))
+
+        # استحقاق الراتب (قيد): مدين 521، دائن 213
+        accrue_tx = accrue_salary(emp, payroll_expense, payroll_liability)
+        self.assertEqual(payroll_expense.balance, net)
+        self.assertEqual(expenses.balance, net)
+        self.assertEqual(payroll_liability.balance, net)
+
+        # صرف الراتب (قيد): مدين 213، دائن 111
+        pay_tx = pay_salary(emp, payroll_liability, cash)
+        self.assertEqual(payroll_liability.balance, Decimal('0.00'))
+        self.assertEqual(cash.balance, -net)
+
+    def test_inventory_loss_recording(self):
+        # إعداد الحسابات
+        expenses = Account('5', 'المصروفات', nature='debit')
+        loss_account = Account('525', 'بضاعة تالفة', parent=expenses, nature='debit')
+        inventory = Account('121', 'المخزون', nature='debit')
+
+        # ضع رصيد مبدئي للمخزون
+        inventory.balance = Decimal('1000.00')
+
+        # سجّل خسارة جردية
+        tx = record_inventory_loss('50.25', loss_account, inventory)
+
+        # التوقعات: زيادة مصروف البضاعة التالفة ونقصان المخزون
+        self.assertEqual(loss_account.balance, Decimal('50.25'))
+        self.assertEqual(expenses.balance, Decimal('50.25'))
+        self.assertEqual(inventory.balance, Decimal('949.75'))
+
     def test_store_sale_distribution_to_wallets(self):
         # إعداد الحسابات: الصندوق (111)، محافظ المستثمرين/التجار/المنصة
         assets = Account("1", "الأصول", nature='debit')
@@ -243,7 +336,7 @@ class TestMetaHubAccounting(unittest.TestCase):
         # رصيد مبدئي للمستثمر
         investor_wallet.balance = Decimal('1000.00')
 
-        # عملية بيع جوال بسعر 150 يتم توزيعها كالتالي: 115 +=130, 116 +=15, 417 +=5
+        # عملية ب��ع جوال بسعر 150 يتم توزيعها كالتالي: 115 +=130, 116 +=15, 417 +=5
         sale_amount = Decimal('150.00')
         investor_share = Decimal('130.00')
         merchant_share = Decimal('15.00')
