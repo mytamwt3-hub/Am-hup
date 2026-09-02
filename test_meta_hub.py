@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+import re
 from decimal import Decimal, InvalidOperation, getcontext, ROUND_HALF_EVEN
 from typing import Dict, List
 
@@ -63,7 +64,7 @@ def save_store_db():
             {
                 'code': pcode,
                 'name': p['name'],
-                'price': decimal_to_str(Decimal(p['price'])),
+                'price': p['price'],
                 'quantity': p['quantity']
             }
             for pcode, p in PRODUCTS.items()
@@ -114,7 +115,7 @@ def load_store_db():
     PURCHASES.extend(data.get('purchases', []))
     PRODUCTS.clear()
     for p in data.get('products', []):
-        PRODUCTS[p['code']] = {'name': p['name'], 'price': decimal_to_str(Decimal(p['price'])), 'quantity': int(p['quantity'])}
+        PRODUCTS[p['code']] = {'name': p['name'], 'price': p['price'], 'quantity': int(p['quantity'])}
     ORDERS.clear()
     ORDERS.extend(data.get('orders', []))
     SUBSCRIPTIONS.clear()
@@ -240,8 +241,8 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     place_order(customer_account, sales_account, total)
 
     # اقتطاع عمولة المنصة 5%
-    platform_fee = (total * Decimal('0.05')).quantize(CENT, rounding=ROUND_HALF_EVEN)
     platform = ACCOUNTS.get('417') or Account('417', 'عمولة_المنصة', nature='credit')
+    platform_fee = (total * Decimal('0.05')).quantize(CENT, rounding=ROUND_HALF_EVEN)
     fee_tx = Transaction(description=f"عمولة منصة على بيع {product_code}: {platform_fee}")
     fee_tx.add_entry(sales_account, 'debit', platform_fee)
     fee_tx.add_entry(platform, 'credit', platform_fee)
@@ -345,7 +346,99 @@ def add_product(code: str, name: str, price, quantity: int):
     save_all_persistence()
 
 
-# ---------- اختبارات الوحدة النهائية (محدثة) ----------
+# ---------- AI Accountant Agent (محاسب ذكي) ----------
+def ai_parse_and_record_invoice(text: str, target_inventory_station: str = '121') -> Dict:
+    """
+    تحاكي قراءة نص فاتورة مشتريات، وتستخرج الكمية/المبلغ/باركود المنتج وتولد قيد محاسبي مناسب
+    سلوك ذكي مبسط:
+    - يستخرج المبلغ (أول رقم يظهر) ويقربه
+    - يستخرج باركود المنتج (مثال: P001)
+    - إذا وُجد رصيد كافٍ في الصندوق 111 -> يعتبرها مشتريات من الصندوق (نقص نقد، زيادة مخزون)
+      وإلا -> يعتبرها مشتريات مع تمويل (دائن على المورد في حساب 211)
+    - يحدث كمية المنتج في PRODUCTS ويحدث INVENTORY
+    """
+    # بحث عن مبلغ
+    m = re.search(r"(\d+[\.,]?\d*)", text)
+    if not m:
+        raise ValueError('لم يتم العثور على مبلغ في النص')
+    amount = Decimal(m.group(1).replace(',', '.')).quantize(CENT, rounding=ROUND_HALF_EVEN)
+
+    # بحث عن باركود
+    p = re.search(r"P\d+", text)
+    product_code = p.group(0) if p else None
+
+    # تأكد من حسابات أساسية
+    cash = ACCOUNTS.get('111') or Account('111', 'الصندوق', nature='debit')
+    inventory_acc = ACCOUNTS.get('121') or Account('121', 'المخزن_اللحظي', nature='debit')
+    supplier = ACCOUNTS.get('211') or Account('211', 'دائنون_الموردين', nature='credit')
+
+    # اختَر نوع القيد
+    if cash.balance >= amount:
+        # قيد مشتريات من الصندوق: مدين للمخزون، دائن للصندوق
+        tx = Transaction(description=f"AI: قيد شراء نقدي {product_code or ''} {amount}")
+        tx.add_entry(inventory_acc, 'debit', amount)
+        tx.add_entry(cash, 'credit', amount)
+        tx.commit()
+        method = 'cash'
+    else:
+        # قيد مشتريات ممول: مدين للمخزون، دائن للمورد
+        tx = Transaction(description=f"AI: قيد شراء ممول {product_code or ''} {amount}")
+        tx.add_entry(inventory_acc, 'debit', amount)
+        tx.add_entry(supplier, 'credit', amount)
+        tx.commit()
+        method = 'funded'
+
+    # حدس الكمية: إذا كان المنتج معروفاً نستخدم السعر لإيجاد كمية تقريبية (floor)
+    qty_added = 0
+    if product_code and product_code in PRODUCTS:
+        price = Decimal(PRODUCTS[product_code]['price'])
+        # كمية منتظمة = floor(amount / price)
+        try:
+            qty_added = int((amount / price).to_integral_value(rounding=ROUND_HALF_EVEN))
+        except Exception:
+            qty_added = 0
+        if qty_added <= 0:
+            qty_added = 1
+        PRODUCTS[product_code]['quantity'] += qty_added
+        INVENTORY.setdefault(target_inventory_station, {})
+        INVENTORY[target_inventory_station][product_code] = INVENTORY[target_inventory_station].get(product_code, 0) + qty_added
+        save_all_persistence()
+
+    result = {'amount': decimal_to_str(amount), 'product': product_code, 'qty_added': qty_added, 'method': method}
+    return result
+
+
+def ai_generate_financial_summary() -> Dict:
+    """
+    يقرأ الأرصدة من ACCOUNTS أو ملفات الـ JSON ويولد ملخصاً بسيطاً:
+    - إجمالي الأصول (جمع حسابات طبيعتها debit)
+    - رصيد الصندوق 111
+    - رصيد محفظة التاجر 116
+    - عمولات المنصة في 417
+    """
+    # حاول إعادة تحميل القيم من الملفات إن وجدت
+    load_invest_db()
+    load_store_db()
+
+    total_assets = Decimal('0.00')
+    for acc in ACCOUNTS.values():
+        if acc.nature == 'debit':
+            total_assets += acc.balance
+
+    cash111 = ACCOUNTS.get('111').balance if '111' in ACCOUNTS else Decimal('0.00')
+    wallet116 = ACCOUNTS.get('116').balance if '116' in ACCOUNTS else Decimal('0.00')
+    platform417 = ACCOUNTS.get('417').balance if '417' in ACCOUNTS else Decimal('0.00')
+
+    summary = {
+        'total_assets': decimal_to_str(total_assets),
+        'cash_111': decimal_to_str(cash111),
+        'merchant_wallet_116': decimal_to_str(wallet116),
+        'platform_commissions_417': decimal_to_str(platform417)
+    }
+    return summary
+
+
+# ---------- اختبارات الوحدة النهائية (محدثة مع AI) ----------
 class TestMetaHubAccounting(unittest.TestCase):
     def setUp(self):
         # حذف ملفات التخزين إن وجدت لضمان بيئة اختبار نظيفة
@@ -414,6 +507,30 @@ class TestMetaHubAccounting(unittest.TestCase):
         self.assertIn({'merchant_id': 'M01', 'amount': '111.50'}, CLOSED_REVENUES)
         # temporary accounts zeroed
         self.assertEqual(self.distribution_expense.balance, Decimal('0.00'))
+
+    def test_ai_accountant_agent(self):
+        # Ensure cash is low to force funded purchase scenario
+        self.cash.balance = Decimal('0.00')
+        # initial quantity
+        before_qty = PRODUCTS['P001']['quantity']
+        text = 'فاتورة شراء من مورد الأجهزة بقيمة 500 ريال وباركود P001'
+        result = ai_parse_and_record_invoice(text)
+        # result contains parsed amount and product and qty_added
+        self.assertEqual(result['product'], 'P001')
+        self.assertTrue(Decimal(result['amount']) > 0)
+        self.assertTrue(result['qty_added'] >= 1)
+        # product quantity should increase
+        self.assertEqual(PRODUCTS['P001']['quantity'], before_qty + result['qty_added'])
+
+        # summary should be readable and contain keys
+        summary = ai_generate_financial_summary()
+        self.assertIn('total_assets', summary)
+        self.assertIn('cash_111', summary)
+        self.assertIn('merchant_wallet_116', summary)
+        self.assertIn('platform_commissions_417', summary)
+        # values should be parseable as Decimal
+        Decimal(summary['total_assets'])
+        Decimal(summary['cash_111'])
 
 
 if __name__ == '__main__':
