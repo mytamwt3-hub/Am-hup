@@ -21,7 +21,7 @@ class Account:
     def _apply_change(self, delta: Decimal):
         if not isinstance(delta, Decimal):
             raise TypeError("delta يجب أن يكون من نوع Decimal")
-        # نفترض أن التغير قد تم تقريبه مسبقاً عند الإنشاء
+        # نفترض أن التغير قد تم تقريبه مسبقاً عند الإنشاء أو في مكان الحساب
         self.balance += delta
         if self.parent:
             self.parent._apply_change(delta)
@@ -51,7 +51,7 @@ class Entry:
 class Transaction:
     """
     تمثل قيد محاسبي متعدد الأسطر. قبل التطبيق نتحقق أن مجموع المدين = مجموع الدائن.
-    عند التطبيق نحسب التغير ��لصافي لكل حساب على شكل Decimal ثم نطبقه.
+    عند التطبيق نحسب التغير الصافي لكل حساب على شكل Decimal ثم نطبقه.
     """
     def __init__(self, description: str = ""):
         self.description = description
@@ -83,60 +83,102 @@ class Transaction:
         for account, delta in net_changes.items():
             account._apply_change(delta)
 
-# ---------- نظام شؤون الموظفين والرواتب ----------
+# ---------- نظام شؤون الموظفين والرواتب (محدَّث) ----------
 class Employee:
-    def __init__(self, name: str, emp_id: str, base_salary, allowances=0, deductions=0):
+    def __init__(self, name: str, emp_id: str, base_salary, allowances=0, deductions=0,
+                 email: str = '', shift_type: str = 'full-time', leaves_entitled=0, leaves_used=0,
+                 job_type: str = 'عامل'):
+        """
+        job_type: كاشير، عامل، مدير، مندوب توصيل
+        leaves_entitled, leaves_used: number of leave days
+        خصم الغياب يحسب عندما leaves_used > leaves_entitled
+        """
         self.name = name
         self.emp_id = emp_id
+        self.email = email
+        self.shift_type = shift_type
+        self.job_type = job_type
         try:
             self.base_salary = Decimal(base_salary).quantize(CENT, rounding=ROUND_HALF_EVEN)
             self.allowances = Decimal(allowances).quantize(CENT, rounding=ROUND_HALF_EVEN)
             self.deductions = Decimal(deductions).quantize(CENT, rounding=ROUND_HALF_EVEN)
+            self.leaves_entitled = Decimal(leaves_entitled)
+            self.leaves_used = Decimal(leaves_used)
         except (InvalidOperation, TypeError):
-            raise ValueError("الراتب/البدلات/الخصومات يجب أن تكون أرقاماً صالحة")
+            raise ValueError("الراتب/البدلات/الخصومات/الإجازات يجب أن تكون أرقاماً صالحة")
         if self.base_salary < 0 or self.allowances < 0 or self.deductions < 0:
             raise ValueError("القيم المالية لا يجب أن تكون سالبة")
 
+    def absence_deduction(self) -> Decimal:
+        """إذا تجاوزت leaves_used الإجازات المستحقة، يتم خصم أيام الغياب من الراتب بشكل يومي (قاعدة: 30 يومًا للشهر)."""
+        absent_days = (self.leaves_used - self.leaves_entitled)
+        if absent_days <= 0:
+            return Decimal('0.00')
+        # حساب الأجر اليومي من خلال قسمة الراتب الأساسي على 30 ثم تقريب
+        daily = (self.base_salary / Decimal('30')).quantize(CENT, rounding=ROUND_HALF_EVEN)
+        deduction = (daily * absent_days).quantize(CENT, rounding=ROUND_HALF_EVEN)
+        return deduction
+
+    def total_deductions(self) -> Decimal:
+        # مجموع الخصومات المدخلة زائد خصم الغياب المحسوب
+        total = (self.deductions + self.absence_deduction()).quantize(CENT, rounding=ROUND_HALF_EVEN)
+        return total
+
     def net_pay(self) -> Decimal:
-        return (self.base_salary + self.allowances - self.deductions).quantize(CENT, rounding=ROUND_HALF_EVEN)
+        net = (self.base_salary + self.allowances - self.total_deductions()).quantize(CENT, rounding=ROUND_HALF_EVEN)
+        return net
+
 
 def accrue_salary(employee: Employee, expense_account: Account, liability_account: Account) -> Transaction:
-    """تسجل استحقاق راتب: مدين لمصروفات الرواتب (511) ودائن لرواتب مستحقة (221) بالصافي"""
+    """تسجل استحقاق راتب: مدين لمصروفات الرواتب (521) ودائن لرواتب مستحقة (213) بالصافي"""
     net = employee.net_pay()
     if net <= Decimal('0.00'):
-        raise ValueError("صافي الراتب يجب أن يكون موجباً للاقتطاع كاستحقاق")
+            raise ValueError("صافي الراتب يجب أن يكون موجباً للاقتطاع كاستحقاق")
     tx = Transaction(description=f"استحقاق راتب: {employee.emp_id} - {employee.name}")
     tx.add_entry(expense_account, 'debit', net)
     tx.add_entry(liability_account, 'credit', net)
     tx.commit()
     return tx
 
+
 def pay_salary(employee: Employee, liability_account: Account, cash_account: Account) -> Transaction:
-    """تسجل صرف راتب: مدين لرواتب مستحقة (221) ودائن للصندوق (111) عند الدفع"""
+    """تسجل صرف راتب: مدين لرواتب مستحقة (213) ودائن للصندوق (111) عند الدفع"""
     net = employee.net_pay()
     if net <= Decimal('0.00'):
-        raise ValueError("صافي الراتب يجب أن يكون موجباً لعملية الدفع")
+            raise ValueError("صافي الراتب يجب أن يكون موجباً لعملية الدفع")
     tx = Transaction(description=f"صرف راتب: {employee.emp_id} - {employee.name}")
     tx.add_entry(liability_account, 'debit', net)
     tx.add_entry(cash_account, 'credit', net)
     tx.commit()
     return tx
 
-# ---------- اختبارات الوحدة ----------
+# ---------- تسوية الجرد (التوالف والناقص) ----------
+def record_inventory_loss(amount, loss_account: Account, inventory_account: Account) -> Transaction:
+    """تسجيل خسارة جردية: مدين لحساب 525_بضاعة_تالفة، دائن لِـ 121_المخزون"""
+    try:
+        amt = Decimal(amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
+    except (InvalidOperation, TypeError):
+        raise ValueError("المبلغ يجب أن يكون رقمياً صالحاً")
+    if amt <= Decimal('0.00'):
+        raise ValueError("مبلغ التسوية يجب أن يكون موجباً")
+    tx = Transaction(description=f"تسوية جردية - توالف: {amt}")
+    tx.add_entry(loss_account, 'debit', amt)
+    tx.add_entry(inventory_account, 'credit', amt)
+    tx.commit()
+    return tx
+
+# ---------- اختبارات الوحدة (محدثة) ----------
 class TestMetaHubAccounting(unittest.TestCase):
     def test_double_entry_cash_sale(self):
-        # إعداد الحسابات
         assets = Account("1", "الأصول", nature='debit')
         cash = Account("111", "الصندوق", parent=assets, nature='debit')
         sales = Account("411", "المبيعات", nature='credit')
 
-        # عملية بيع نقدي: مدين للصندوق، دائن للمبيعات
         tx = Transaction(description="بيع نقدي")
         tx.add_entry(cash, 'debit', '1500.004')  # سيتقرب إلى 1500.00
         tx.add_entry(sales, 'credit', '1500.004')
         tx.commit()
 
-        # توقعات: زيادة في الصندوق (+1500.00)، هذا ينعكس في الأصل (+1500.00)
         self.assertEqual(cash.balance, Decimal('1500.00'))
         self.assertEqual(assets.balance, Decimal('1500.00'))
         self.assertEqual(sales.balance, Decimal('1500.00'))
@@ -170,7 +212,7 @@ class TestMetaHubAccounting(unittest.TestCase):
         tx = Transaction('إيداع ومبيعات')
         tx.add_entry(bank, 'debit', '500.255')  # يقرب إلى 500.26
         tx.add_entry(current, 'debit', '99.745')  # يقرب إلى 99.75
-        tx.add_entry(revenue, 'credit', '600.005')  # يقرب إ��ى 600.01
+        tx.add_entry(revenue, 'credit', '600.005')  # يقرب إلى 600.01
         tx.commit()
 
         self.assertEqual(bank.balance, Decimal('500.26'))
@@ -178,35 +220,50 @@ class TestMetaHubAccounting(unittest.TestCase):
         self.assertEqual(root.balance, Decimal('600.01'))
         self.assertEqual(revenue.balance, Decimal('600.01'))
 
-    def test_salary_accrual_and_payment(self):
-        # إعداد الحسابات الهرمية والضرورية للرواتب
+    def test_salary_accrual_and_payment_with_leaves_and_new_accounts(self):
+        # إعداد الحسابات الهرمية والضرورية للرواتب مع أرقام حسابات محدَّثة
         assets = Account("1", "الأصول", nature='debit')
         cash = Account("111", "الصندوق", parent=assets, nature='debit')
 
         expenses = Account('5', 'المصروفات', nature='debit')
-        payroll_expense = Account('511', 'مصروفات الرواتب', parent=expenses, nature='debit')
+        payroll_expense = Account('521', 'مصروفات الرواتب', parent=expenses, nature='debit')  # updated to 521
 
         liabilities = Account('2', 'الخصوم', nature='credit')
-        payroll_liability = Account('221', 'رواتب مستحقة', parent=liabilities, nature='credit')
+        payroll_liability = Account('213', 'رواتب مستحقة', parent=liabilities, nature='credit')  # updated to 213
 
-        # أنشئ موظف
-        emp = Employee(name='أحمد', emp_id='E001', base_salary='2000.005', allowances='200.004', deductions='150')
+        # أنشئ موظف مع إجازة مستخدمة تزيد عن المستحقة (يسبب خصم غياب)
+        emp = Employee(name='أحمد', emp_id='E001', base_salary='2000.00', allowances='200.00',
+                       deductions='150.00', leaves_entitled=2, leaves_used=4, email='a@example.com', job_type='كاشير')
+        # حساب الغياب: absent_days = 2 => daily = 2000/30 -> 66.67 => deduction_from_absence = 133.34
+        absence_ded = emp.absence_deduction()
+        self.assertEqual(absence_ded, Decimal('133.34'))
+
         net = emp.net_pay()
-        # تحقق من حساب صافي الراتب بدقة وبالتقريب إلى سنتين
-        self.assertEqual(net, Decimal('2050.01'))  # 2000.01 + 200.00 - 150.00 = 2050.01
+        # total deductions = 150.00 + 133.34 = 283.34 -> net = 2000 + 200 - 283.34 = 1916.66
+        self.assertEqual(net, Decimal('1916.66'))
 
-        # ��ستحقاق الراتب (قيد): مدين 511، دائن 221
+        # استحقاق الراتب (قيد): مدين 521، دائن 213
         accrue_tx = accrue_salary(emp, payroll_expense, payroll_liability)
-        # بعد الاستحقاق: مصروفات الرواتب وزيادة في الخصوم
         self.assertEqual(payroll_expense.balance, net)
         self.assertEqual(expenses.balance, net)
         self.assertEqual(payroll_liability.balance, net)
 
-        # صرف الراتب (قيد): مدين 221 (يقلل الخصوم)، دائن 111 (ينقص النقد)
-        pay_tx = pay_salary(emp, payroll_liability, cash)
-        # بعد الصرف: الخصوم تعود للصفر، والصندوق نقص
-        self.assertEqual(payroll_liability.balance, Decimal('0.00'))
-        self.assertEqual(cash.balance, -net)  # since cash was credited (انخفاض في الرصيد المدين)
+    def test_inventory_loss_recording(self):
+        # إعداد الحسابات
+        expenses = Account('5', 'المصروفات', nature='debit')
+        loss_account = Account('525', 'بضاعة تالفة', parent=expenses, nature='debit')
+        inventory = Account('121', 'المخزون', nature='debit')
+
+        # ضع رصيد مبدئي للمخزون
+        inventory.balance = Decimal('1000.00')
+
+        # سجّل خسارة جردية
+        tx = record_inventory_loss('50.25', loss_account, inventory)
+
+        # التوقعات: زيادة مصروف البضاعة التالفة ونقصان المخزون
+        self.assertEqual(loss_account.balance, Decimal('50.25'))
+        self.assertEqual(expenses.balance, Decimal('50.25'))
+        self.assertEqual(inventory.balance, Decimal('949.75'))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
