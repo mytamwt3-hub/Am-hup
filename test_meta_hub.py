@@ -8,7 +8,7 @@ class Account:
     """
     def __init__(self, code: str, name: str, parent: 'Account' = None, nature: str = 'debit'):
         if nature not in ('debit', 'credit'):
-            raise ValueError("nature must be 'debit' or 'credit'")
+            raise ValueError("الطبيعة يجب أن تكون مدين أو دائن")
         self.code = code
         self.name = name
         self.parent = parent
@@ -32,9 +32,9 @@ class Entry:
     """
     def __init__(self, account: Account, side: str, amount: float):
         if side not in ('debit', 'credit'):
-            raise ValueError("side must be 'debit' or 'credit'")
+            raise ValueError("الجانب يجب أن يكون مدين أو دائن")
         if amount <= 0:
-            raise ValueError("amount must be positive")
+            raise ValueError("المبلغ يجب أن يكون موجباً")
         self.account = account
         self.side = side
         self.amount = float(amount)
