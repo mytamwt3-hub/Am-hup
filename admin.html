@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم المحاسبية - Admin Dashboard MetaHOP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e6ff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Animations */
+        @keyframes neonPulse {
+            0%, 100% { text-shadow: 0 0 10px #00d4ff, 0 0 20px #0099ff, 0 0 30px #0066ff; }
+            50% { text-shadow: 0 0 20px #00d4ff, 0 0 30px #00ffff, 0 0 40px #0099ff; }
+        }
+
+        @keyframes boxGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 153, 255, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(0, 212, 255, 0.5), 0 0 60px rgba(138, 43, 226, 0.3); }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes countUp {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Header */
+        header {
+            background: rgba(10, 14, 39, 0.98);
+            border-bottom: 3px solid #00d4ff;
+            padding: 25px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.25);
+        }
+
+        header h1 {
+            font-size: 2.8em;
+            color: #00ffff;
+            animation: neonPulse 2s infinite;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+        }
+
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            color: #b0b8ff;
+        }
+
+        .manager-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .manager-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #00d4ff, #aa00ff);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .manager-details p {
+            margin: 3px 0;
+            font-size: 0.9em;
+        }
+
+        .time-display {
+            background: rgba(170, 0, 255, 0.15);
+            border: 2px solid #aa00ff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            color: #aa00ff;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* Metrics Dashboard */
+        .metrics-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: rgba(20, 33, 61, 0.9);
+            border: 2px solid #00d4ff;
+            border-radius: 12px;
+            padding: 25px;
+            animation: boxGlow 3s infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(170, 0, 255, 0.1));
+            animation: slideDown 3s ease-in-out infinite;
+        }
+
+        .metric-label {
+            color: #aa00ff;
+            font-size: 0.95em;
+            margin-bottom: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            color: #00ffff;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+            margin-bottom: 10px;
+            animation: countUp 1s ease-in;
+            font-family: 'Courier New', monospace;
+        }
+
+        .metric-change {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #00ff00;
+            font-size: 0.9em;
+        }
+
+        .metric-change.negative {
+            color: #ff6666;
+        }
+
+        /* Invoice Section */
+        .section {
+            background: rgba(20, 33, 61, 0.95);
+            border: 2px solid #00d4ff;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            animation: boxGlow 3s infinite;
+        }
+
+        .section h2 {
+            color: #00ffff;
+            font-size: 2em;
+            margin-bottom: 25px;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+            border-bottom: 2px solid #aa00ff;
+            padding-bottom: 15px;
+        }
+
+        /* Invoice Form */
+        .invoice-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            color: #aa00ff;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            background: rgba(0, 212, 255, 0.05);
+            border: 2px solid #00d4ff;
+            color: #00ffff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            background: rgba(0, 212, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .form-group input::placeholder {
+            color: #6b7aa8;
+        }
+
+        /* Invoice Display */
+        .invoice-container {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid #aa00ff;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .invoice-header {
+            text-align: center;
+            border-bottom: 2px solid #00d4ff;
+            padding-bottom: 25px;
+            margin-bottom: 25px;
+        }
+
+        .invoice-title {
+            color: #00ffff;
+            font-size: 2.2em;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+            margin-bottom: 10px;
+        }
+
+        .invoice-number {
+            color: #aa00ff;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .invoice-date {
+            color: #b0b8ff;
+            font-size: 0.95em;
+        }
+
+        .invoice-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px 0;
+        }
+
+        .invoice-column {
+            color: #b0b8ff;
+            line-height: 1.8;
+        }
+
+        .invoice-column-title {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .invoice-items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+
+        .invoice-items thead {
+            background: rgba(170, 0, 255, 0.15);
+            border: 1px solid #aa00ff;
+        }
+
+        .invoice-items th {
+            color: #aa00ff;
+            padding: 15px;
+            text-align: right;
+            font-weight: bold;
+            border: 1px solid #aa00ff;
+        }
+
+        .invoice-items td {
+            color: #b0b8ff;
+            padding: 15px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            text-align: right;
+        }
+
+        .invoice-items tbody tr:nth-child(odd) {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .invoice-items tbody tr:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .price-decimal {
+            font-family: 'Courier New', monospace;
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        /* Invoice Totals */
+        .invoice-totals {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+            background: rgba(170, 0, 255, 0.1);
+            border: 2px solid #aa00ff;
+            border-radius: 10px;
+            padding: 25px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(170, 0, 255, 0.2);
+            color: #b0b8ff;
+        }
+
+        .total-row:last-child {
+            border-bottom: none;
+        }
+
+        .total-row.grand-total {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #00ffff;
+            border-top: 2px solid #aa00ff;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+
+        .total-label {
+            font-weight: bold;
+        }
+
+        .total-value {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #00ffff;
+        }
+
+        /* CCTV Search */
+        .cctv-section {
+            background: rgba(20, 33, 61, 0.95);
+            border: 2px solid #ff4444;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            animation: boxGlow 3s infinite;
+        }
+
+        .cctv-section h2 {
+            color: #ff6666;
+            font-size: 2em;
+            margin-bottom: 25px;
+            text-shadow: 0 0 15px rgba(255, 68, 68, 0.3);
+            border-bottom: 2px solid #ff4444;
+            padding-bottom: 15px;
+        }
+
+        .cctv-search-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 15px;
+            margin-bottom: 25px;
+            align-items: flex-end;
+        }
+
+        .search-input {
+            background: rgba(255, 68, 68, 0.05);
+            border: 2px solid #ff4444;
+            color: #ff6666;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+
+        .search-input:focus {
+            outline: none;
+            background: rgba(255, 68, 68, 0.15);
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+        }
+
+        .search-input::placeholder {
+            color: #aa6666;
+        }
+
+        .btn-search-cctv {
+            background: rgba(255, 68, 68, 0.2);
+            border: 2px solid #ff4444;
+            color: #ff6666;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .btn-search-cctv:hover {
+            background: rgba(255, 68, 68, 0.4);
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.5);
+        }
+
+        /* CCTV Results */
+        .cctv-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .cctv-card {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #ff4444;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .cctv-card:hover {
+            border-color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .cctv-card-title {
+            color: #ff6666;
+            font-weight: bold;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .cctv-card-content {
+            color: #b0b8ff;
+            line-height: 1.6;
+            font-size: 0.9em;
+        }
+
+        .cctv-timestamp {
+            color: #00d4ff;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .btn-play-video {
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid #00d4ff;
+            color: #00ffff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 12px;
+            transition: all 0.3s;
+        }
+
+        .btn-play-video:hover {
+            background: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        /* Annual Lock Section */
+        .lock-section {
+            background: linear-gradient(135deg, rgba(20, 33, 61, 0.95), rgba(255, 68, 68, 0.1));
+            border: 3px solid #ff9900;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .lock-section h2 {
+            color: #ff9900;
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 153, 0, 0.4);
+        }
+
+        .lock-info {
+            color: #b0b8ff;
+            margin-bottom: 30px;
+            font-size: 1.05em;
+            line-height: 1.8;
+        }
+
+        .lock-status {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .status-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .status-box.active {
+            border-color: #00ff00;
+        }
+
+        .status-box.active .status-label {
+            color: #00ff00;
+        }
+
+        .status-box.inactive {
+            border-color: #ff4444;
+        }
+
+        .status-box.inactive .status-label {
+            color: #ff6666;
+        }
+
+        .status-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            text-transform: uppercase;
+        }
+
+        .status-value {
+            color: #b0b8ff;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        /* Lock Buttons */
+        .lock-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-lock {
+            padding: 16px 40px;
+            border: 3px solid;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.05em;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-lock-execute {
+            background: linear-gradient(135deg, rgba(255, 153, 0, 0.3), rgba(255, 68, 68, 0.2));
+            border-color: #ff9900;
+            color: #ff9900;
+            box-shadow: 0 0 20px rgba(255, 153, 0, 0.2);
+        }
+
+        .btn-lock-execute:hover {
+            background: linear-gradient(135deg, rgba(255, 153, 0, 0.5), rgba(255, 68, 68, 0.3));
+            box-shadow: 0 0 30px rgba(255, 153, 0, 0.4);
+            transform: scale(1.05);
+        }
+
+        .btn-lock-execute:disabled {
+            background: rgba(100, 100, 100, 0.3);
+            border-color: #666666;
+            color: #888888;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .btn-lock-cancel {
+            background: rgba(170, 0, 255, 0.2);
+            border-color: #aa00ff;
+            color: #aa00ff;
+        }
+
+        .btn-lock-cancel:hover {
+            background: rgba(170, 0, 255, 0.4);
+            box-shadow: 0 0 20px rgba(170, 0, 255, 0.4);
+        }
+
+        /* Error Messages */
+        .error-message {
+            background: rgba(255, 68, 68, 0.2);
+            border: 2px solid #ff4444;
+            color: #ff6666;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.05em;
+            animation: shake 0.5s;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* Success Messages */
+        .success-message {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.05em;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideDown 0.5s;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(20, 33, 61, 0.98);
+            border: 2px solid;
+            border-radius: 8px;
+            padding: 20px;
+            color: #00ffff;
+            font-weight: bold;
+            max-width: 400px;
+            z-index: 2000;
+            animation: slideDown 0.5s ease;
+        }
+
+        .notification.error {
+            border-color: #ff4444;
+            color: #ff6666;
+        }
+
+        .notification.success {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: rgba(20, 33, 61, 0.98);
+            border: 3px solid #ff9900;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 0 50px rgba(255, 153, 0, 0.3);
+            animation: modalPop 0.3s ease;
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            color: #ff9900;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px rgba(255, 153, 0, 0.3);
+        }
+
+        .modal-body {
+            color: #b0b8ff;
+            line-height: 1.8;
+            margin-bottom: 25px;
+            font-size: 1.05em;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .btn-modal {
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            border: 2px solid;
+            transition: all 0.3s;
+        }
+
+        .btn-modal-confirm {
+            background: rgba(255, 153, 0, 0.3);
+            border-color: #ff9900;
+            color: #ff9900;
+        }
+
+        .btn-modal-confirm:hover {
+            background: rgba(255, 153, 0, 0.5);
+            box-shadow: 0 0 15px rgba(255, 153, 0, 0.5);
+        }
+
+        .btn-modal-cancel {
+            background: rgba(170, 0, 255, 0.2);
+            border-color: #aa00ff;
+            color: #aa00ff;
+        }
+
+        .btn-modal-cancel:hover {
+            background: rgba(170, 0, 255, 0.4);
+            box-shadow: 0 0 15px rgba(170, 0, 255, 0.5);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .invoice-info {
+                grid-template-columns: 1fr;
+            }
+
+            .cctv-search-box {
+                grid-template-columns: 1fr;
+            }
+
+            .lock-status {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .metrics-section {
+                grid-template-columns: 1fr;
+            }
+
+            .header-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .invoice-items {
+                font-size: 0.85em;
+            }
+
+            .invoice-items th,
+            .invoice-items td {
+                padding: 10px;
+            }
+
+            .lock-buttons {
+                flex-direction: column;
+            }
+
+            .btn-lock {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔐 لوحة التحكم المحاسبية - Admin Dashboard</h1>
+        <div class="header-info">
+            <div class="manager-info">
+                <div class="manager-avatar">👨‍💼</div>
+                <div class="manager-details">
+                    <p><strong>مدير النظام:</strong> محمد الحاكم</p>
+                    <p><strong>الصلاحية:</strong> مدير مالي كامل (Full Admin)</p>
+                </div>
+            </div>
+            <div class="time-display" id="timeDisplay">00:00:00</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Metrics Section -->
+        <div class="metrics-section">
+            <div class="metric-card">
+                <div class="metric-label">💰 إجمالي الأصول</div>
+                <div class="metric-value" id="totalAssets">0.00</div>
+                <div class="metric-change">
+                    <span>📈 السنة الحالية</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">🏦 رصيد الصندوق (111)</div>
+                <div class="metric-value" id="cashBalance">0.00</div>
+                <div class="metric-change">
+                    <span>✓ متطابق مع النظام</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">📊 محفظة التاجر (116)</div>
+                <div class="metric-value" id="merchantWallet">0.00</div>
+                <div class="metric-change">
+                    <span>💸 أرباح متراكمة</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">🔌 عمولات المنصة (417)</div>
+                <div class="metric-value" id="platformCommissions">0.00</div>
+                <div class="metric-change">
+                    <span>🎯 رسوم سنوية</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice Section -->
+        <div class="section">
+            <h2>📄 نموذج الفاتورة الرسمي</h2>
+
+            <div class="invoice-controls">
+                <div class="form-group">
+                    <label>رقم الفاتورة</label>
+                    <input type="text" id="invoiceNumber" placeholder="مثال: INV-2024-001" value="INV-2026-001">
+                </div>
+                <div class="form-group">
+                    <label>التاريخ</label>
+                    <input type="date" id="invoiceDate">
+                </div>
+                <div class="form-group">
+                    <label>اسم العميل</label>
+                    <input type="text" id="clientName" placeholder="أدخل اسم العميل" value="أحمد محمد السعيد">
+                </div>
+                <div class="form-group">
+                    <label>رقم الهوية</label>
+                    <input type="text" id="clientId" placeholder="1234567890" value="1234567890">
+                </div>
+            </div>
+
+            <button class="btn-lock" style="background: rgba(0, 212, 255, 0.2); border-color: #00d4ff; color: #00ffff; margin-bottom: 30px; width: 100%;" onclick="generateInvoice()">
+                ✓ إنشاء فاتورة جديدة
+            </button>
+
+            <div class="invoice-container">
+                <div class="invoice-header">
+                    <div class="invoice-title">🧾 فاتورة رسمية</div>
+                    <div class="invoice-number" id="invoiceNumDisplay">INV-2026-001</div>
+                    <div class="invoice-date" id="invoiceDateDisplay">2026-09-03</div>
+                </div>
+
+                <div class="invoice-info">
+                    <div class="invoice-column">
+                        <div class="invoice-column-title">من:</div>
+                        <p><strong>شركة MetaHOP للتجارة الإلكترونية</strong></p>
+                        <p>الرياض، المملكة العربية السعودية</p>
+                        <p>رقم السجل التجاري: 1010123456</p>
+                        <p>البريد: info@metahop.sa</p>
+                    </div>
+                    <div class="invoice-column">
+                        <div class="invoice-column-title">إلى:</div>
+                        <p id="clientNameDisplay"><strong>أحمد محمد السعيد</strong></p>
+                        <p id="clientIdDisplay">رقم الهوية: 1234567890</p>
+                        <p>تاريخ التحرير: <span id="issueDateDisplay">2026-09-03</span></p>
+                    </div>
+                </div>
+
+                <table class="invoice-items">
+                    <thead>
+                        <tr>
+                            <th>البيان</th>
+                            <th>الوحدة</th>
+                            <th>السعر للوحدة</th>
+                            <th>الكمية</th>
+                            <th>الإجمالي</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceItemsBody">
+                        <tr>
+                            <td>آيفون 15 Pro</td>
+                            <td>قطعة</td>
+                            <td class="price-decimal">3990.00 ريال</td>
+                            <td>1</td>
+                            <td class="price-decimal">3990.00 ريال</td>
+                        </tr>
+                        <tr>
+                            <td>سماعات AirPods Pro</td>
+                            <td>قطعة</td>
+                            <td class="price-decimal">1299.00 ريال</td>
+                            <td>1</td>
+                            <td class="price-decimal">1299.00 ريال</td>
+                        </tr>
+                        <tr>
+                            <td>حقيبة MacBook Pro</td>
+                            <td>قطعة</td>
+                            <td class="price-decimal">449.00 ريال</td>
+                            <td>1</td>
+                            <td class="price-decimal">449.00 ريال</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="invoice-totals">
+                    <div class="total-row">
+                        <span class="total-label">المجموع (قبل الضريبة):</span>
+                        <span class="total-value" id="subtotalValue">5738.00 ريال</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">خصم (إن وجد):</span>
+                        <span class="total-value" id="discountValue">0.00 ريال</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">الضريبة (15%):</span>
+                        <span class="total-value" id="taxValue">860.70 ريال</span>
+                    </div>
+                    <div class="total-row grand-total">
+                        <span class="total-label">الإجمالي النهائي:</span>
+                        <span class="total-value" id="grandTotalValue">6598.70 ريال</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CCTV Security Section -->
+        <div class="cctv-section">
+            <h2>🎥 نظام البحث الأمني - كاميرات المراقبة الذكية</h2>
+
+            <div class="cctv-search-box">
+                <div class="form-group" style="grid-column: 1 / 2;">
+                    <label>البحث برقم الفاتورة</label>
+                    <input type="text" class="search-input" id="searchInvoiceNum" placeholder="مثال: INV-2026-001">
+                </div>
+                <div class="form-group" style="grid-column: 2 / 3;">
+                    <label>أو البحث بالتاريخ</label>
+                    <input type="date" class="search-input" id="searchDate">
+                </div>
+                <div class="form-group" style="grid-column: 3 / 4;">
+                    <label>نطاق الوقت (الساعة)</label>
+                    <select class="search-input">
+                        <option>00:00 - 06:00</option>
+                        <option>06:00 - 12:00</option>
+                        <option>12:00 - 18:00</option>
+                        <option>18:00 - 00:00</option>
+                    </select>
+                </div>
+                <button class="btn-search-cctv" onclick="searchCCTV()">🔍 بحث</button>
+            </div>
+
+            <div class="cctv-results" id="cctvResults">
+                <div class="cctv-card">
+                    <div class="cctv-card-title">📹 لقطة الفيديو #1</div>
+                    <div class="cctv-card-content">
+                        <p><strong>رقم الفاتورة:</strong> INV-2026-001</p>
+                        <p><strong>العميل:</strong> أحمد محمد السعيد</p>
+                        <p><strong>المبلغ:</strong> 6598.70 ريال</p>
+                        <div class="cctv-timestamp">⏱️ 2026-09-03 14:35:22</div>
+                        <p><strong>مدة التسجيل:</strong> 4 دقائق 32 ثانية</p>
+                        <p><strong>حالة الدفع:</strong> ✓ مكتمل</p>
+                        <p><strong>ملاحظات:</strong> عملية شراء عادية - بدون مشاكل</p>
+                    </div>
+                    <button class="btn-play-video" onclick="playVideo('INV-2026-001')">▶ تشغيل الفيديو</button>
+                </div>
+
+                <div class="cctv-card">
+                    <div class="cctv-card-title">📹 لقطة الفيديو #2</div>
+                    <div class="cctv-card-content">
+                        <p><strong>رقم الفاتورة:</strong> INV-2026-002</p>
+                        <p><strong>العميل:</strong> فاطمة علي الأحمد</p>
+                        <p><strong>المبلغ:</strong> 2847.30 ريال</p>
+                        <div class="cctv-timestamp">⏱️ 2026-09-03 16:47:15</div>
+                        <p><strong>مدة التسجيل:</strong> 2 دقيقة 18 ثانية</p>
+                        <p><strong>حالة الدفع:</strong> ✓ مكتمل</p>
+                        <p><strong>ملاحظات:</strong> عملية شراء - دفع ببطاقة</p>
+                    </div>
+                    <button class="btn-play-video" onclick="playVideo('INV-2026-002')">▶ تشغيل الفيديو</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Annual Financial Lock Section -->
+        <div class="lock-section">
+            <h2>🔒 نظام الإقفال المالي السنوي الصارم</h2>
+
+            <div class="lock-info">
+                <p>🔐 هذه العملية حساسة جداً وتُقفل حسابات المنصة للعام بأكمله</p>
+                <p>⚠️ يجب التأكد من سداد قيمة الباقة السنوية قبل المتابعة</p>
+            </div>
+
+            <div class="lock-status">
+                <div class="status-box" id="packageStatusBox">
+                    <div class="status-label">📦 حالة الباقة السنوية</div>
+                    <div class="status-value" id="packageStatus">غير مسدد ❌</div>
+                </div>
+                <div class="status-box" id="lockStatusBox">
+                    <div class="status-label">🔐 حالة الإقفال</div>
+                    <div class="status-value" id="lockStatus">مفتوح (متاح للعمليات)</div>
+                </div>
+            </div>
+
+            <div class="lock-buttons">
+                <button class="btn-lock btn-lock-execute" id="btnExecuteLock" onclick="executeAnnualLock()">
+                    🔐 تنفيذ الإقفال المالي السنوي
+                </button>
+                <button class="btn-lock btn-lock-cancel" onclick="cancelLock()">
+                    ✕ إلغاء
+                </button>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+        </div>
+    </div>
+
+    <!-- Lock Confirmation Modal -->
+    <div class="modal" id="lockConfirmModal">
+        <div class="modal-content">
+            <div class="modal-header">⚠️ تأكيد الإقفال المالي</div>
+            <div class="modal-body">
+                <p>هل أنت متأكد من رغبتك في تنفيذ الإقفال المالي السنوي؟</p>
+                <p style="margin-top: 15px; color: #ff9900; font-weight: bold;">
+                    ⚠️ هذه العملية غير قابلة للتراجع ستقفل جميع حسابات هذا العام
+                </p>
+                <p style="margin-top: 10px;">
+                    <strong>تفاصيل الإقفال:</strong><br>
+                    السنة المالية: <span id="lockYear">2026</span><br>
+                    إجمالي المبيعات: <span id="lockSales">0.00</span><br>
+                    إجمالي الأرباح: <span id="lockProfits">0.00</span>
+                </p>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-modal btn-modal-cancel" onclick="closeLockModal()">إلغاء</button>
+                <button class="btn-modal btn-modal-confirm" onclick="confirmLock()">✓ تأكيد الإقفال</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        const state = {
+            packagePaid: false, // Initially False - must pay before lock
+            isLocked: false,
+            invoiceData: {
+                number: 'INV-2026-001',
+                date: new Date().toISOString().split('T')[0],
+                clientName: 'أحمد محمد السعيد',
+                clientId: '1234567890'
+            }
+        };
+
+        // Mock API Data
+        const accountingData = {
+            totalAssets: 125430.50,
+            cashBalance: 45670.25,
+            merchantWallet: 62340.75,
+            platformCommissions: 17419.50
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMetrics();
+            setCurrentDate();
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+
+        // Load Metrics from API
+        function loadMetrics() {
+            document.getElementById('totalAssets').textContent = formatCurrency(accountingData.totalAssets);
+            document.getElementById('cashBalance').textContent = formatCurrency(accountingData.cashBalance);
+            document.getElementById('merchantWallet').textContent = formatCurrency(accountingData.merchantWallet);
+            document.getElementById('platformCommissions').textContent = formatCurrency(accountingData.platformCommissions);
+        }
+
+        // Format Currency with Decimal
+        function formatCurrency(amount) {
+            return new Decimal(amount.toFixed(2)).toFixed(2) + ' ريال';
+        }
+
+        // Clock Update
+        function updateClock() {
+            const now = new Date();
+            const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+                           String(now.getMinutes()).padStart(2, '0') + ':' +
+                           String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('timeDisplay').textContent = timeStr;
+        }
+
+        // Set Current Date
+        function setCurrentDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('invoiceDate').value = today;
+            document.getElementById('searchDate').value = today;
+            document.getElementById('invoiceDateDisplay').textContent = today;
+            document.getElementById('issueDateDisplay').textContent = today;
+        }
+
+        // Generate Invoice
+        function generateInvoice() {
+            state.invoiceData.number = document.getElementById('invoiceNumber').value;
+            state.invoiceData.date = document.getElementById('invoiceDate').value;
+            state.invoiceData.clientName = document.getElementById('clientName').value;
+            state.invoiceData.clientId = document.getElementById('clientId').value;
+
+            document.getElementById('invoiceNumDisplay').textContent = state.invoiceData.number;
+            document.getElementById('invoiceDateDisplay').textContent = state.invoiceData.date;
+            document.getElementById('clientNameDisplay').textContent = state.invoiceData.clientName;
+            document.getElementById('clientIdDisplay').textContent = 'رقم الهوية: ' + state.invoiceData.clientId;
+
+            showNotification('✓ تم إنشاء الفاتورة بنجاح', 'success');
+        }
+
+        // Search CCTV
+        function searchCCTV() {
+            const invoiceNum = document.getElementById('searchInvoiceNum').value;
+            const date = document.getElementById('searchDate').value;
+
+            if (!invoiceNum && !date) {
+                showNotification('🔴 يرجى إدخال رقم الفاتورة أو التاريخ', 'error');
+                return;
+            }
+
+            showNotification('🔍 جاري البحث في سجلات CCTV...', 'success');
+        }
+
+        // Play Video
+        function playVideo(invoiceNum) {
+            showNotification(`🎥 تشغيل الفيديو للفاتورة: ${invoiceNum}`, 'success');
+            console.log('Playing video for invoice:', invoiceNum);
+        }
+
+        // Execute Annual Lock
+        function executeAnnualLock() {
+            // Check package payment status
+            if (!state.packagePaid) {
+                showErrorMessage('🔴 لا يمكن إتمام الإقفال المالي مالم يتم سداد قيمة الباقة السنوية للمنصة أولاً');
+                return;
+            }
+
+            // Open confirmation modal
+            document.getElementById('lockConfirmModal').classList.add('active');
+        }
+
+        // Confirm Lock
+        function confirmLock() {
+            if (state.isLocked) {
+                showNotification('⚠️ النظام مقفول بالفعل', 'error');
+                return;
+            }
+
+            state.isLocked = true;
+            document.getElementById('lockStatusBox').classList.remove('active');
+            document.getElementById('lockStatusBox').classList.add('inactive');
+            document.getElementById('lockStatus').textContent = 'مقفول ✓ (لا يمكن إجراء عمليات)';
+            document.getElementById('btnExecuteLock').disabled = true;
+
+            showSuccessMessage('✓ تم تنفيذ الإقفال المالي السنوي بنجاح - جميع الحسابات مقفولة الآن');
+            closeLockModal();
+        }
+
+        // Cancel Lock
+        function cancelLock() {
+            closeLockModal();
+        }
+
+        // Close Lock Modal
+        function closeLockModal() {
+            document.getElementById('lockConfirmModal').classList.remove('active');
+        }
+
+        // Show Error Message
+        function showErrorMessage(message) {
+            const errorBox = document.getElementById('errorMessage');
+            errorBox.textContent = message;
+            errorBox.classList.add('show');
+            setTimeout(() => {
+                errorBox.classList.remove('show');
+            }, 5000);
+        }
+
+        // Show Success Message
+        function showSuccessMessage(message) {
+            const successBox = document.getElementById('successMessage');
+            successBox.textContent = message;
+            successBox.classList.add('show');
+            setTimeout(() => {
+                successBox.classList.remove('show');
+            }, 5000);
+        }
+
+        // Show Notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 4000);
+        }
+
+        // Close modal on outside click
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('lockConfirmModal');
+            if (event.target === modal) {
+                closeLockModal();
+            }
+        });
+
+        // Mock Decimal class (simplified)
+        class Decimal {
+            constructor(value) {
+                this.value = parseFloat(value);
+            }
+            toFixed(places) {
+                return this.value.toFixed(places);
+            }
+        }
+    </script>
+</body>
+</html>
