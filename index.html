@@ -61,7 +61,7 @@
     </header>
 
     <main class="container">
-        <!-- Features slider: المحاسب الآلي، محفظة الاستثمار، المتجر، واتساب، التوصيل -->
+        <!-- Features slider: المحاسب الآلي، محفظة الاستثمار، المتجر، واتساب، التوصيل، النظام المحاسبي -->
         <section class="features" aria-label="مميزات MetaHub">
             <div class="top">
                 <div class="headline">
@@ -170,6 +170,24 @@
                         </div>
                     </article>
 
+                    <!-- Slide: النظام المحاسبي المتكامل -->
+                    <article class="slide" role="group" aria-roledescription="slide" aria-label="النظام المحاسبي المتكامل">
+                        <div class="slide-visual">
+                            <img src="https://picsum.photos/id/1016/1200/800" alt="النظام المحاسبي المتكامل" loading="lazy">
+                        </div>
+                        <div class="slide-content">
+                            <div class="feature-title">النظام المحاسبي المتكامل</div>
+                            <div class="feature-desc">نظام محاسبي شامل لإدارة الفواتير، الميزانية، والقيود اليومية مع تقارير مالية دقيقة وقابلة للتصدير تتوافق مع المعايير المحاسبية.</div>
+                            <div class="feature-meta">
+                                <div class="icon-box" aria-hidden="true">
+                                    <!-- ledger/accounting svg -->
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.2"/></svg>
+                                </div>
+                                <div style="color:rgba(230,238,248,0.78)">فواتير — ميزانية — قيود يومية — تقارير متقدمة</div>
+                            </div>
+                        </div>
+                    </article>
+
                 </div>
             </div>
         </section>
@@ -214,8 +232,9 @@
 
             // autoplay
             let auto = setInterval(nextSlide, 5000);
-            document.querySelector('.features').addEventListener('mouseenter', ()=> clearInterval(auto));
-            document.querySelector('.features').addEventListener('mouseleave', ()=> { auto = setInterval(nextSlide, 5000); });
+            const featuresEl = document.querySelector('.features');
+            featuresEl.addEventListener('mouseenter', ()=> clearInterval(auto));
+            featuresEl.addEventListener('mouseleave', ()=> { auto = setInterval(nextSlide, 5000); });
 
             // init
             window.addEventListener('resize', update);
