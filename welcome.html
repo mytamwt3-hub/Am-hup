@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaHOP - منصة الاستثمار والتجارة الذكية</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f0f2e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Animated background */
+        .background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 200, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 0, 150, 0.1) 0%, transparent 50%);
+            animation: bgShift 15s ease-in-out infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes bgShift {
+            0%, 100% {
+                background: 
+                    radial-gradient(circle at 20% 50%, rgba(0, 255, 200, 0.1) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 80%, rgba(255, 0, 150, 0.1) 0%, transparent 50%);
+            }
+            50% {
+                background: 
+                    radial-gradient(circle at 80% 50%, rgba(0, 255, 200, 0.1) 0%, transparent 50%),
+                    radial-gradient(circle at 20% 80%, rgba(255, 0, 150, 0.1) 0%, transparent 50%);
+            }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Welcome Section */
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeIn 1.2s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo-container {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ffc8 0%, #ff00aa 100%);
+            filter: blur(20px);
+            animation: glowPulse 2.5s ease-in-out infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.3;
+            }
+        }
+
+        .logo-image {
+            position: relative;
+            z-index: 2;
+            width: 140px;
+            height: 140px;
+            background: linear-gradient(135deg, #1a1a3e 0%, #2a2a5e 100%);
+            border-radius: 50%;
+            border: 3px solid #00ffc8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 80px;
+            text-shadow: 0 0 20px #00ffc8;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 200, 0.5),
+                inset 0 0 20px rgba(0, 255, 200, 0.2);
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+
+        .brand-title {
+            font-size: 42px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00ffc8 0%, #ff00aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(0, 255, 200, 0.3);
+            letter-spacing: 2px;
+        }
+
+        .brand-subtitle {
+            font-size: 18px;
+            color: #a0a0c0;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        /* Carousel Container */
+        .carousel-container {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            height: 450px;
+            background: rgba(26, 26, 62, 0.8);
+            border: 2px solid #00ffc8;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 200, 0.3),
+                inset 0 0 20px rgba(0, 255, 200, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+        }
+
+        .slides-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+        .slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: none;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .slide.prev {
+            transform: translateX(-100%);
+        }
+
+        .slide-icon {
+            font-size: 70px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px currentColor);
+            animation: iconBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes iconBounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+
+        .slide-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #00ffc8;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(0, 255, 200, 0.5);
+        }
+
+        .slide-description {
+            font-size: 16px;
+            color: #c0c0e0;
+            line-height: 1.8;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .slide-description::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .slide-description::-webkit-scrollbar-track {
+            background: rgba(0, 255, 200, 0.1);
+            border-radius: 10px;
+        }
+
+        .slide-description::-webkit-scrollbar-thumb {
+            background: #00ffc8;
+            border-radius: 10px;
+        }
+
+        /* Navigation Controls */
+        .carousel-nav {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #00ffc8;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 200, 0.3);
+        }
+
+        .nav-dot.active {
+            background: #00ffc8;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 0 20px rgba(0, 255, 200, 0.8);
+        }
+
+        .nav-dot:hover {
+            transform: scale(1.3);
+            box-shadow: 0 0 20px rgba(0, 255, 200, 0.8);
+        }
+
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, rgba(0, 255, 200, 0.2), rgba(255, 0, 170, 0.2));
+            border: 2px solid #00ffc8;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: #00ffc8;
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+
+        .nav-arrow:hover {
+            background: linear-gradient(135deg, rgba(0, 255, 200, 0.4), rgba(255, 0, 170, 0.4));
+            box-shadow: 0 0 20px rgba(0, 255, 200, 0.8);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-arrow.prev {
+            left: 20px;
+        }
+
+        .nav-arrow.next {
+            right: 20px;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+            margin-top: 50px;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: slideUp 1s ease-out 0.3s both;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn {
+            padding: 16px 40px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-store {
+            background: linear-gradient(135deg, #00ffc8 0%, #00d9a3 100%);
+            color: #0a0e27;
+            box-shadow: 0 0 25px rgba(0, 255, 200, 0.5);
+            border: 2px solid #00ffc8;
+        }
+
+        .btn-store:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 0 40px rgba(0, 255, 200, 0.8), 0 10px 30px rgba(0, 255, 200, 0.3);
+        }
+
+        .btn-admin {
+            background: linear-gradient(135deg, #ff00aa 0%, #d000aa 100%);
+            color: #fff;
+            box-shadow: 0 0 25px rgba(255, 0, 170, 0.5);
+            border: 2px solid #ff00aa;
+        }
+
+        .btn-admin:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 0 40px rgba(255, 0, 170, 0.8), 0 10px 30px rgba(255, 0, 170, 0.3);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .brand-title {
+                font-size: 32px;
+            }
+
+            .carousel-container {
+                height: 380px;
+                width: 95%;
+            }
+
+            .slide {
+                padding: 40px 30px;
+            }
+
+            .slide-title {
+                font-size: 22px;
+            }
+
+            .slide-description {
+                font-size: 14px;
+            }
+
+            .slide-icon {
+                font-size: 50px;
+            }
+
+            .nav-arrow {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+
+            .nav-arrow.prev {
+                left: 10px;
+            }
+
+            .nav-arrow.next {
+                right: 10px;
+            }
+
+            .action-buttons {
+                margin-top: 30px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+                padding: 14px 30px;
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .brand-title {
+                font-size: 24px;
+            }
+
+            .brand-subtitle {
+                font-size: 14px;
+            }
+
+            .logo-container {
+                width: 120px;
+                height: 120px;
+                margin-bottom: 20px;
+            }
+
+            .logo-image {
+                width: 100px;
+                height: 100px;
+                font-size: 60px;
+            }
+
+            .carousel-container {
+                height: 320px;
+                width: 100%;
+                border-radius: 15px;
+            }
+
+            .slide {
+                padding: 30px 20px;
+            }
+
+            .slide-title {
+                font-size: 18px;
+                margin-bottom: 10px;
+            }
+
+            .slide-description {
+                font-size: 13px;
+                max-height: 100px;
+            }
+
+            .slide-icon {
+                font-size: 40px;
+                margin-bottom: 15px;
+            }
+
+            .carousel-nav {
+                bottom: 15px;
+                gap: 10px;
+            }
+
+            .nav-dot {
+                width: 10px;
+                height: 10px;
+            }
+
+            .nav-dot.active {
+                width: 14px;
+                height: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation"></div>
+    
+    <div class="container">
+        <!-- Welcome Section -->
+        <div class="welcome-section">
+            <div class="logo-container">
+                <div class="logo-glow"></div>
+                <div class="logo-image">🚀</div>
+            </div>
+            <h1 class="brand-title">MetaHOP</h1>
+            <p class="brand-subtitle">منصة الاستثمار والت��ارة الذكية</p>
+        </div>
+
+        <!-- Carousel Section -->
+        <div class="carousel-container">
+            <button class="nav-arrow prev" onclick="prevSlide()">❮</button>
+            
+            <div class="slides-wrapper" id="slidesWrapper">
+                <!-- Slide 1 -->
+                <div class="slide active">
+                    <div class="slide-icon">🛒</div>
+                    <h2 class="slide-title">متجر 24/7</h2>
+                    <p class="slide-description">لربط التجزئة والجملة والموردين ديناميكياً مع نظام المتابعة والتنبيهات الذكية للعمل بكفاءة عالية طوال اليوم.</p>
+                </div>
+
+                <!-- Slide 2 -->
+                <div class="slide">
+                    <div class="slide-icon">🎥</div>
+                    <h2 class="slide-title">المراقبة الأمنية</h2>
+                    <p class="slide-description">ربط الفواتير بكاميرات المراقبة أوفلاين لحماية المحل من السرقات والتزوير مع إعادة تشغيل فورية للفيديو.</p>
+                </div>
+
+                <!-- Slide 3 -->
+                <div class="slide">
+                    <div class="slide-icon">📊</div>
+                    <h2 class="slide-title">النظام المحاسبي</h2>
+                    <p class="slide-description">إدارة شاملة للفواتير والمبيعات والمشتريات مع تقارير دقيقة وتصنيفات حسابية متقدمة للعمليات المالية.</p>
+                </div>
+
+                <!-- Slide 4 -->
+                <div class="slide">
+                    <div class="slide-icon">👆</div>
+                    <h2 class="slide-title">الحضور الذكي</h2>
+                    <p class="slide-description">تسجيل الحضور والانصراف بالبصمة وحساب خصم دقائق التأخير بالـ Decimal المقرب لإدارة فعالة للموارد البشرية.</p>
+                </div>
+
+                <!-- Slide 5 -->
+                <div class="slide">
+                    <div class="slide-icon">💰</div>
+                    <h2 class="slide-title">محفظة الاستثمار</h2>
+                    <p class="slide-description">توزيع أرباح الكنز المركبة وإدارة استثماراتك بذكاء مع تحليلات عميقة وتوقعات السوق الحقيقية.</p>
+                </div>
+
+                <!-- Slide 6 -->
+                <div class="slide">
+                    <div class="slide-icon">🧮</div>
+                    <h2 class="slide-title">المحاسب الذكي</h2>
+                    <p class="slide-description">تصوير الفواتير بالجوال فوراً وإنعاش المخزن 121 مع حسابات دقيقة وتوازن مستمر للقيود المحاسبية.</p>
+                </div>
+
+                <!-- Slide 7 -->
+                <div class="slide">
+                    <div class="slide-icon">📦</div>
+                    <h2 class="slide-title">إدارة المخزن</h2>
+                    <p class="slide-description">تتبع دقيق للمخزون مع تنبيهات الأسهم المنخفضة وتوقع الطلب بناءً على البيانات التاريخية والاتجاهات السوقية.</p>
+                </div>
+
+                <!-- Slide 8 -->
+                <div class="slide">
+                    <div class="slide-icon">🔔</div>
+                    <h2 class="slide-title">التنبيهات الذكية</h2>
+                    <p class="slide-description">استقبل إشعارات فورية عند أي عملية مهمة مع تحكم كامل في تصفية التنبيهات ومستويات الأولوية حسب احتياجاتك.</p>
+                </div>
+
+                <!-- Slide 9 -->
+                <div class="slide">
+                    <div class="slide-icon">📈</div>
+                    <h2 class="slide-title">التقارير المتقدمة</h2>
+                    <p class="slide-description">تحليلات شاملة وتقارير دقيقة عن المبيعات والأرباح والخسائر مع رسوم بيانية تفاعلية وتصدير متعدد الصيغ.</p>
+                </div>
+
+                <!-- Slide 10 -->
+                <div class="slide">
+                    <div class="slide-icon">⚡</div>
+                    <h2 class="slide-title">الأداء السريع</h2>
+                    <p class="slide-description">سرعة عالية في المعالجة والاستجابة مع واجهة سلسة وآمنة تعمل حتى في البيئات منخفضة الاتصال بالإنترنت.</p>
+                </div>
+            </div>
+
+            <button class="nav-arrow next" onclick="nextSlide()">❯</button>
+
+            <!-- Navigation Dots -->
+            <div class="carousel-nav" id="navDots"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <a href="index.html" class="btn btn-store">
+                <span>الدخول كـ متجر/عميل</span>
+                <span>🛒</span>
+            </a>
+            <a href="admin.html" class="btn btn-admin">
+                <span>الدخول كـ مدير/تاجر</span>
+                <span>📊</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const totalSlides = 10;
+        let currentSlide = 0;
+
+        // Initialize navigation dots
+        function initDots() {
+            const navDots = document.getElementById('navDots');
+            navDots.innerHTML = '';
+            for (let i = 0; i < totalSlides; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                dot.onclick = () => goToSlide(i);
+                navDots.appendChild(dot);
+            }
+        }
+
+        // Update active slide
+        function updateSlide() {
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.nav-dot');
+
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active', 'prev');
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                } else if (index < currentSlide) {
+                    slide.classList.add('prev');
+                }
+            });
+
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentSlide);
+            });
+        }
+
+        // Next slide
+        function nextSlide() {
+            currentSlide = (currentSlide + 1) % totalSlides;
+            updateSlide();
+        }
+
+        // Previous slide
+        function prevSlide() {
+            currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+            updateSlide();
+        }
+
+        // Go to specific slide
+        function goToSlide(index) {
+            currentSlide = index;
+            updateSlide();
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        // Touch/Swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        const slidesWrapper = document.getElementById('slidesWrapper');
+        slidesWrapper.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        slidesWrapper.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            if (touchStartX - touchEndX > 50) {
+                nextSlide();
+            } else if (touchEndX - touchStartX > 50) {
+                prevSlide();
+            }
+        }
+
+        // Auto-advance slides every 8 seconds
+        setInterval(() => {
+            nextSlide();
+        }, 8000);
+
+        // Initialize
+        initDots();
+        updateSlide();
+    </script>
+</body>
+</html>
