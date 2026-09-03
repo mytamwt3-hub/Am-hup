@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaHOP - المتجر الإلكتروني الذكي</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e6ff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Neon Glow Effects */
+        @keyframes neonPulse {
+            0%, 100% { text-shadow: 0 0 10px #00d4ff, 0 0 20px #0099ff, 0 0 30px #0066ff; }
+            50% { text-shadow: 0 0 20px #00d4ff, 0 0 30px #00ffff, 0 0 40px #0099ff; }
+        }
+
+        @keyframes boxGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 153, 255, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(0, 212, 255, 0.5), 0 0 60px rgba(138, 43, 226, 0.3); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+
+        /* Header */
+        header {
+            background: rgba(10, 14, 39, 0.95);
+            border-bottom: 2px solid #00d4ff;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            color: #00ffff;
+            animation: neonPulse 2s infinite;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        .header-subtitle {
+            text-align: center;
+            color: #aa00ff;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        nav button {
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid #00d4ff;
+            color: #00ffff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        nav button:hover {
+            background: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+
+        nav button.active {
+            background: #00d4ff;
+            color: #0a0e27;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* Store Section */
+        .store-section {
+            display: none;
+        }
+
+        .store-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Store Header Info */
+        .store-header {
+            background: rgba(20, 33, 61, 0.9);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            animation: boxGlow 3s infinite;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .store-info h2 {
+            color: #00ffff;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+
+        .store-info p {
+            color: #b0b8ff;
+            margin: 5px 0;
+        }
+
+        .store-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Follow & Notification Buttons */
+        .btn-follow, .btn-notify {
+            padding: 12px 20px;
+            border: 2px solid;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-follow {
+            border-color: #00ffff;
+            color: #00ffff;
+            background: rgba(0, 255, 255, 0.05);
+        }
+
+        .btn-follow:hover {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+
+        .btn-follow.following {
+            background: rgba(0, 255, 255, 0.3);
+            color: #00ff00;
+            border-color: #00ff00;
+        }
+
+        .btn-notify {
+            border-color: #aa00ff;
+            color: #aa00ff;
+            background: rgba(170, 0, 255, 0.05);
+        }
+
+        .btn-notify:hover {
+            background: rgba(170, 0, 255, 0.2);
+            box-shadow: 0 0 15px rgba(170, 0, 255, 0.4);
+        }
+
+        .btn-notify.active {
+            background: rgba(170, 0, 255, 0.3);
+            color: #ff00ff;
+            border-color: #ff00ff;
+        }
+
+        /* Wholesale Toggle */
+        .wholesale-toggle {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            background: rgba(20, 33, 61, 0.9);
+            padding: 20px;
+            border: 2px solid #aa00ff;
+            border-radius: 10px;
+            justify-content: center;
+        }
+
+        .toggle-label {
+            color: #aa00ff;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 70px;
+            height: 35px;
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid #00d4ff;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: rgba(170, 0, 255, 0.3);
+            border-color: #aa00ff;
+        }
+
+        .toggle-circle {
+            position: absolute;
+            width: 29px;
+            height: 29px;
+            background: #00d4ff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active .toggle-circle {
+            left: 38px;
+            background: #aa00ff;
+        }
+
+        /* Products Grid */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        /* Product Card */
+        .product-card {
+            background: rgba(20, 33, 61, 0.8);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            animation: boxGlow 3s infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            border-color: #aa00ff;
+        }
+
+        .product-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        .product-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .product-name {
+            color: #00ffff;
+            font-size: 1.3em;
+            font-weight: bold;
+            flex: 1;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .product-barcode {
+            background: rgba(170, 0, 255, 0.2);
+            color: #aa00ff;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-family: monospace;
+            border: 1px solid #aa00ff;
+        }
+
+        .product-details {
+            margin: 15px 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .detail-label {
+            color: #b0b8ff;
+            font-size: 0.9em;
+        }
+
+        .detail-value {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        .price-section {
+            background: rgba(170, 0, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #aa00ff;
+        }
+
+        .price-label {
+            color: #b0b8ff;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .price-value {
+            font-size: 1.8em;
+            color: #00ffff;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+        }
+
+        /* Product Actions */
+        .product-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-add-cart {
+            flex: 1;
+            padding: 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid #00d4ff;
+            color: #00ffff;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-add-cart:hover {
+            background: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(20, 33, 61, 0.9);
+            border: 1px solid #00d4ff;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .quantity-control button {
+            background: transparent;
+            border: none;
+            color: #00d4ff;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .quantity-control button:hover {
+            color: #aa00ff;
+        }
+
+        .quantity-control input {
+            width: 50px;
+            background: transparent;
+            border: none;
+            color: #00ffff;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1em;
+        }
+
+        /* Cart Section */
+        .cart-section {
+            margin-top: 40px;
+            background: rgba(20, 33, 61, 0.95);
+            border: 2px solid #aa00ff;
+            border-radius: 10px;
+            padding: 25px;
+            animation: boxGlow 3s infinite;
+        }
+
+        .cart-section h3 {
+            color: #aa00ff;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px rgba(170, 0, 255, 0.3);
+        }
+
+        .cart-empty {
+            text-align: center;
+            color: #b0b8ff;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        .cart-items {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .cart-item {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .cart-item-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .cart-item-name {
+            color: #00ffff;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .cart-item-details {
+            color: #b0b8ff;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .cart-item-price {
+            color: #aa00ff;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .cart-item-remove {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff6666;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .cart-item-remove:hover {
+            background: rgba(255, 0, 0, 0.2);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+        }
+
+        .cart-summary {
+            background: rgba(170, 0, 255, 0.1);
+            border: 2px solid #aa00ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(170, 0, 255, 0.2);
+            color: #b0b8ff;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+
+        .summary-row.total {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #00ffff;
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 2px solid #aa00ff;
+        }
+
+        /* Checkout Button */
+        .btn-checkout {
+            width: 100%;
+            padding: 18px;
+            margin-top: 20px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(170, 0, 255, 0.2));
+            border: 2px solid #00d4ff;
+            color: #00ffff;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-checkout:hover {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(170, 0, 255, 0.4));
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5), 0 0 30px rgba(170, 0, 255, 0.3);
+            transform: scale(1.02);
+        }
+
+        .btn-checkout:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        /* Notification Toast */
+        .notification {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(20, 33, 61, 0.95);
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+            padding: 20px;
+            color: #00ffff;
+            font-weight: bold;
+            max-width: 400px;
+            animation: slideIn 0.5s ease;
+            z-index: 2000;
+        }
+
+        .notification.success {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+
+        .notification.error {
+            border-color: #ff4444;
+            color: #ff6666;
+        }
+
+        .notification.info {
+            border-color: #aa00ff;
+            color: #aa00ff;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: rgba(20, 33, 61, 0.98);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.3);
+            animation: modalPop 0.3s ease;
+        }
+
+        @keyframes modalPop {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            color: #00ffff;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .modal-body {
+            color: #b0b8ff;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .btn-modal {
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            border: 2px solid;
+            transition: all 0.3s ease;
+        }
+
+        .btn-confirm {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+            color: #00ffff;
+        }
+
+        .btn-confirm:hover {
+            background: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn-cancel {
+            background: rgba(170, 0, 255, 0.2);
+            border-color: #aa00ff;
+            color: #aa00ff;
+        }
+
+        .btn-cancel:hover {
+            background: rgba(170, 0, 255, 0.4);
+            box-shadow: 0 0 15px rgba(170, 0, 255, 0.5);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .store-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+
+            .cart-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🌐 MetaHOP</h1>
+        <p class="header-subtitle">منصة التجارة الإلكترونية الذكية - Smart eCommerce Platform</p>
+        <nav>
+            <button class="nav-btn active" data-view="retail">🏪 التجزئة (Retail)</button>
+            <button class="nav-btn" data-view="wholesale">📦 الجملة (Wholesale)</button>
+            <button class="nav-btn" data-view="suppliers">🏭 الموردين (Suppliers)</button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- Retail Store Section -->
+        <div class="store-section active" data-store="retail">
+            <div class="store-header">
+                <div class="store-info">
+                    <h2>🏪 محل التجزئة الرئيسي</h2>
+                    <p>💳 <strong>المتجر:</strong> Premium Retail Store</p>
+                    <p>📍 <strong>الموقع:</strong> الرياض - المملكة العربية السعودية</p>
+                    <p>⭐ <strong>التقييم:</strong> 4.8/5 من 2,450 تقييم</p>
+                </div>
+                <div class="store-actions">
+                    <button class="btn-follow" data-store="retail" onclick="toggleFollow(this)">
+                        ➕ متابعة
+                    </button>
+                    <button class="btn-notify" data-store="retail" onclick="toggleNotification(this)">
+                        🔔 تفعيل التنبيهات
+                    </button>
+                </div>
+            </div>
+
+            <div class="wholesale-toggle">
+                <span class="toggle-label">🛍️ وضع التسوق:</span>
+                <div class="toggle-switch" onclick="toggleWholesaleMode(this, 'retail')">
+                    <div class="toggle-circle"></div>
+                </div>
+                <span class="toggle-label" style="color: #00d4ff;">تجزئة (Retail)</span>
+            </div>
+
+            <div class="products-grid" data-store="retail">
+                <!-- Products will be generated here -->
+            </div>
+        </div>
+
+        <!-- Wholesale Section -->
+        <div class="store-section" data-store="wholesale">
+            <div class="store-header">
+                <div class="store-info">
+                    <h2>📦 مستودع الجملة المركزي</h2>
+                    <p>💳 <strong>المخزن:</strong> Central Wholesale Warehouse</p>
+                    <p>📍 <strong>الموقع:</strong> الرياض - منطقة صناعية</p>
+                    <p>🎯 <strong>الحد الأدنى:</strong> 10 وحدات</p>
+                </div>
+                <div class="store-actions">
+                    <button class="btn-follow" data-store="wholesale" onclick="toggleFollow(this)">
+                        ➕ متابعة
+                    </button>
+                    <button class="btn-notify" data-store="wholesale" onclick="toggleNotification(this)">
+                        🔔 تفعيل التنبيهات
+                    </button>
+                </div>
+            </div>
+
+            <div class="wholesale-toggle">
+                <span class="toggle-label">🛍️ وضع التسوق:</span>
+                <div class="toggle-switch active" onclick="toggleWholesaleMode(this, 'wholesale')">
+                    <div class="toggle-circle"></div>
+                </div>
+                <span class="toggle-label" style="color: #aa00ff;">جملة (Wholesale)</span>
+            </div>
+
+            <div class="products-grid" data-store="wholesale">
+                <!-- Products will be generated here -->
+            </div>
+        </div>
+
+        <!-- Suppliers Section -->
+        <div class="store-section" data-store="suppliers">
+            <div class="store-header">
+                <div class="store-info">
+                    <h2>🏭 شبكة الموردين</h2>
+                    <p>💳 <strong>المنصة:</strong> Supplier Network Platform</p>
+                    <p>📍 <strong>الموقع:</strong> متعدد - سلسلة التوريد</p>
+                    <p>🌍 <strong>الموردين:</strong> 1,250+ مورد موثق</p>
+                </div>
+                <div class="store-actions">
+                    <button class="btn-follow" data-store="suppliers" onclick="toggleFollow(this)">
+                        ➕ متابعة
+                    </button>
+                    <button class="btn-notify" data-store="suppliers" onclick="toggleNotification(this)">
+                        🔔 تفعيل التنبيهات
+                    </button>
+                </div>
+            </div>
+
+            <div class="products-grid" data-store="suppliers">
+                <!-- Products will be generated here -->
+            </div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="cart-section">
+            <h3>🛒 سلة المشتريات</h3>
+            <div class="cart-container">
+                <div class="cart-empty">لا توجد منتجات في السلة حالياً</div>
+                <div class="cart-items" style="display: none;"></div>
+            </div>
+            <div class="cart-summary" style="display: none;">
+                <div class="summary-row">
+                    <span>عدد المنتجات:</span>
+                    <span class="cart-count">0</span>
+                </div>
+                <div class="summary-row">
+                    <span>المجموع (الضريبة مستثناة):</span>
+                    <span class="cart-subtotal">0.00 ريال</span>
+                </div>
+                <div class="summary-row">
+                    <span>الضريبة (15%):</span>
+                    <span class="cart-tax">0.00 ريال</span>
+                </div>
+                <div class="summary-row total">
+                    <span>الإجمالي:</span>
+                    <span class="cart-total">0.00 ريال</span>
+                </div>
+            </div>
+            <button class="btn-checkout" onclick="proceedToCheckout()" disabled>
+                ✓ تأكيد الشراء والدفع
+            </button>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div class="modal" id="checkoutModal">
+        <div class="modal-content">
+            <div class="modal-header">✓ تأكيد الطلب</div>
+            <div class="modal-body">
+                <p><strong>تفاصيل الطلب:</strong></p>
+                <div id="orderDetails"></div>
+                <p style="margin-top: 20px;"><strong>🚀 سيتم إرسال إشعار فوري لجميع المتابعين:</strong></p>
+                <p style="color: #00d4ff;">تم إضافة منتجات جديدة إلى قائمتك المتابعة</p>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-modal btn-cancel" onclick="closeCheckoutModal()">إلغاء</button>
+                <button class="btn-modal btn-confirm" onclick="confirmCheckout()">تأكيد وإرسال الطلب</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample Products Database
+        const products = {
+            retail: [
+                {
+                    id: 'R001',
+                    name: 'آيفون 15 Pro',
+                    description: 'هاتف ذكي متقدم',
+                    retailPrice: 3990.00,
+                    wholesalePrice: 3500.00,
+                    barcode: '8912345678901',
+                    stock: 45,
+                    unit: 'قطعة'
+                },
+                {
+                    id: 'R002',
+                    name: 'سماعات AirPods Pro',
+                    description: 'سماعات لاسلكية بتقنية إلغاء الضوضاء',
+                    retailPrice: 1299.00,
+                    wholesalePrice: 950.00,
+                    barcode: '8912345678902',
+                    stock: 120,
+                    unit: 'قطعة'
+                },
+                {
+                    id: 'R003',
+                    name: 'حقيبة MacBook Pro 16"',
+                    description: 'حقيبة حماية مغناطيسية',
+                    retailPrice: 449.00,
+                    wholesalePrice: 320.00,
+                    barcode: '8912345678903',
+                    stock: 85,
+                    unit: 'قطعة'
+                },
+                {
+                    id: 'R004',
+                    name: 'كابل USB-C سريع',
+                    description: 'كابل شحن فائق السرعة 240W',
+                    retailPrice: 89.00,
+                    wholesalePrice: 55.00,
+                    barcode: '8912345678904',
+                    stock: 200,
+                    unit: 'قطعة'
+                },
+                {
+                    id: 'R005',
+                    name: 'واقي شاشة زجاجي',
+                    description: 'حماية فائقة ضد الخدوش',
+                    retailPrice: 49.00,
+                    wholesalePrice: 25.00,
+                    barcode: '8912345678905',
+                    stock: 500,
+                    unit: 'قطعة'
+                },
+                {
+                    id: 'R006',
+                    name: 'حامل هاتف ذكي',
+                    description: 'حامل دوار قابل للتعديل',
+                    retailPrice: 79.00,
+                    wholesalePrice: 45.00,
+                    barcode: '8912345678906',
+                    stock: 150,
+                    unit: 'قطعة'
+                }
+            ],
+            wholesale: [
+                {
+                    id: 'W001',
+                    name: 'صندوق آيفون 15 Pro (100 وحدة)',
+                    description: 'علبة جملة كاملة',
+                    retailPrice: 3990.00,
+                    wholesalePrice: 3300.00,
+                    barcode: '8912345678911',
+                    stock: 500,
+                    unit: 'صندوق (100 وحدة)'
+                },
+                {
+                    id: 'W002',
+                    name: 'علبة سماعات AirPods (50 وحدة)',
+                    description: 'تغليف جملة موفر',
+                    retailPrice: 1299.00,
+                    wholesalePrice: 850.00,
+                    barcode: '8912345678912',
+                    stock: 300,
+                    unit: 'علبة (50 وحدة)'
+                },
+                {
+                    id: 'W003',
+                    name: 'حقائب MacBook (25 حقيبة)',
+                    description: 'طلب جملة مخصص',
+                    retailPrice: 449.00,
+                    wholesalePrice: 280.00,
+                    barcode: '8912345678913',
+                    stock: 100,
+                    unit: 'علبة (25 حقيبة)'
+                },
+                {
+                    id: 'W004',
+                    name: 'كابلات USB-C (500 كابل)',
+                    description: 'تغليف صناعي',
+                    retailPrice: 89.00,
+                    wholesalePrice: 40.00,
+                    barcode: '8912345678914',
+                    stock: 1000,
+                    unit: 'صندوق (500 كابل)'
+                }
+            ],
+            suppliers: [
+                {
+                    id: 'S001',
+                    name: 'شحنة إلكترونيات (5000 وحدة)',
+                    description: 'طلب توريد استراتيجي',
+                    retailPrice: 100.00,
+                    wholesalePrice: 25.00,
+                    barcode: '8912345678921',
+                    stock: 50,
+                    unit: 'شحنة كاملة'
+                },
+                {
+                    id: 'S002',
+                    name: 'مواد تعبئة (10000 وحدة)',
+                    description: 'صناديق ومواد حماية',
+                    retailPrice: 5.00,
+                    wholesalePrice: 1.50,
+                    barcode: '8912345678922',
+                    stock: 100,
+                    unit: 'شحنة'
+                }
+            ]
+        };
+
+        // State Management
+        const state = {
+            cart: [],
+            currentStore: 'retail',
+            isWholesaleMode: false,
+            following: new Set(),
+            notifications: new Set()
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderProducts();
+            setupEventListeners();
+        });
+
+        // Setup Navigation
+        function setupEventListeners() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    switchView(this.dataset.view);
+                });
+            });
+        }
+
+        function switchView(view) {
+            state.currentStore = view;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.store-section').forEach(s => s.classList.remove('active'));
+            document.querySelector(`[data-store="${view}"]`).classList.add('active');
+        }
+
+        // Render Products
+        function renderProducts() {
+            Object.keys(products).forEach(store => {
+                const grid = document.querySelector(`[data-store="${store}"]`).parentElement.querySelector('.products-grid');
+                grid.innerHTML = products[store].map(product => createProductCard(product, store)).join('');
+            });
+        }
+
+        function createProductCard(product, store) {
+            const currentPrice = state.isWholesaleMode && product.wholesalePrice 
+                ? product.wholesalePrice 
+                : product.retailPrice;
+
+            return `
+                <div class="product-card">
+                    <div class="product-header">
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-barcode">📊 ${product.barcode}</div>
+                    </div>
+                    <div class="product-details">
+                        <div class="detail-row">
+                            <span class="detail-label">📝 الوصف:</span>
+                            <span class="detail-value">${product.description}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">📦 الوحدة:</span>
+                            <span class="detail-value">${product.unit}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">🏪 المخزون:</span>
+                            <span class="detail-value" style="color: ${product.stock > 50 ? '#00ff00' : '#ffaa00'};">${product.stock} وحدة</span>
+                        </div>
+                    </div>
+                    <div class="price-section">
+                        <div class="price-label">
+                            ${state.isWholesaleMode ? '💰 سعر الجملة:' : '💵 السعر:'}
+                        </div>
+                        <div class="price-value">${currentPrice.toFixed(2)} ريال</div>
+                    </div>
+                    <div class="product-actions">
+                        <div class="quantity-control">
+                            <button onclick="decrementQuantity('${product.id}', '${store}')">−</button>
+                            <input type="number" class="qty-${product.id}" value="1" min="1" max="${product.stock}">
+                            <button onclick="incrementQuantity('${product.id}', '${store}')">+</button>
+                        </div>
+                        <button class="btn-add-cart" onclick="addToCart('${product.id}', '${store}')">
+                            🛒 أضف للسلة
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Cart Management
+        function addToCart(productId, store) {
+            const product = products[store].find(p => p.id === productId);
+            const qty = parseInt(document.querySelector(`.qty-${productId}`).value);
+            const price = state.isWholesaleMode ? product.wholesalePrice : product.retailPrice;
+
+            state.cart.push({
+                ...product,
+                quantity: qty,
+                price: price,
+                store: store
+            });
+
+            updateCart();
+            showNotification(`✓ ${product.name} تمت إضافته للسلة!`, 'success');
+        }
+
+        function updateCart() {
+            const itemsContainer = document.querySelector('.cart-items');
+            const emptyMessage = document.querySelector('.cart-empty');
+            const cartSummary = document.querySelector('.cart-summary');
+            const checkoutBtn = document.querySelector('.btn-checkout');
+
+            if (state.cart.length === 0) {
+                itemsContainer.style.display = 'none';
+                cartSummary.style.display = 'none';
+                emptyMessage.style.display = 'block';
+                checkoutBtn.disabled = true;
+                return;
+            }
+
+            emptyMessage.style.display = 'none';
+            itemsContainer.style.display = 'flex';
+            cartSummary.style.display = 'block';
+            checkoutBtn.disabled = false;
+
+            itemsContainer.innerHTML = state.cart.map((item, idx) => `
+                <div class="cart-item">
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${item.name}</div>
+                        <div class="cart-item-details">
+                            الكمية: ${item.quantity} × ${item.price.toFixed(2)} ريال
+                        </div>
+                    </div>
+                    <div class="cart-item-price">${(item.quantity * item.price).toFixed(2)} ريال</div>
+                    <button class="cart-item-remove" onclick="removeFromCart(${idx})">✕ إزالة</button>
+                </div>
+            `).join('');
+
+            // Update summary
+            const subtotal = state.cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            const tax = subtotal * 0.15;
+            const total = subtotal + tax;
+
+            document.querySelector('.cart-count').textContent = state.cart.length;
+            document.querySelector('.cart-subtotal').textContent = subtotal.toFixed(2) + ' ريال';
+            document.querySelector('.cart-tax').textContent = tax.toFixed(2) + ' ريال';
+            document.querySelector('.cart-total').textContent = total.toFixed(2) + ' ريال';
+        }
+
+        function removeFromCart(index) {
+            state.cart.splice(index, 1);
+            updateCart();
+            showNotification('✓ تمت إزالة المنتج من السلة', 'info');
+        }
+
+        function incrementQuantity(productId, store) {
+            const input = document.querySelector(`.qty-${productId}`);
+            const product = products[store].find(p => p.id === productId);
+            if (parseInt(input.value) < product.stock) {
+                input.value = parseInt(input.value) + 1;
+            }
+        }
+
+        function decrementQuantity(productId, store) {
+            const input = document.querySelector(`.qty-${productId}`);
+            if (parseInt(input.value) > 1) {
+                input.value = parseInt(input.value) - 1;
+            }
+        }
+
+        // Follow & Notification System
+        function toggleFollow(button) {
+            const store = button.dataset.store;
+            button.classList.toggle('following');
+            
+            if (state.following.has(store)) {
+                state.following.delete(store);
+                showNotification(`🔌 ألغيت متابعة متجر ${store}`, 'info');
+            } else {
+                state.following.add(store);
+                showNotification(`✓ تتابع الآن متجر ${store} وستتلقى إشعارات جديدة`, 'success');
+            }
+        }
+
+        function toggleNotification(button) {
+            const store = button.dataset.store;
+            button.classList.toggle('active');
+            
+            if (state.notifications.has(store)) {
+                state.notifications.delete(store);
+                showNotification(`🔕 ألغيت تفعيل التنبيهات للمتجر ${store}`, 'info');
+            } else {
+                state.notifications.add(store);
+                showNotification(`🔔 تم تفعيل التنبيهات الفورية للمتجر ${store}`, 'success');
+            }
+        }
+
+        // Wholesale Toggle
+        function toggleWholesaleMode(toggle, store) {
+            state.isWholesaleMode = !state.isWholesaleMode;
+            toggle.classList.toggle('active');
+            renderProducts();
+            showNotification(state.isWholesaleMode ? '📦 تم التبديل لوضع الجملة' : '🏪 تم التبديل لوضع التجزئة', 'info');
+        }
+
+        // Checkout
+        function proceedToCheckout() {
+            if (state.cart.length === 0) {
+                showNotification('🔴 السلة فارغة', 'error');
+                return;
+            }
+
+            const modal = document.getElementById('checkoutModal');
+            const details = state.cart.map(item => 
+                `<p>• ${item.name} × ${item.quantity} = ${(item.quantity * item.price).toFixed(2)} ريال</p>`
+            ).join('');
+
+            document.getElementById('orderDetails').innerHTML = details;
+            modal.classList.add('active');
+        }
+
+        function confirmCheckout() {
+            const subtotal = state.cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            const tax = subtotal * 0.15;
+            const total = subtotal + tax;
+
+            // Simulate API call to backend_server.py
+            const orderData = {
+                items: state.cart.map(item => ({
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    price: new Decimal(item.price.toFixed(2))
+                })),
+                subtotal: new Decimal(subtotal.toFixed(2)),
+                tax: new Decimal(tax.toFixed(2)),
+                total: new Decimal(total.toFixed(2)),
+                timestamp: new Date().toISOString()
+            };
+
+            // Send to server
+            fetch('/api/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(orderData)
+            }).then(response => {
+                if (response.ok) {
+                    showNotification('✓ تم إرسال الطلب بنجاح! سيتم تسليمه قريباً', 'success');
+                    
+                    // Send WhatsApp notifications to followers
+                    sendWhatsAppNotifications();
+                    
+                    state.cart = [];
+                    updateCart();
+                    closeCheckoutModal();
+                } else {
+                    showNotification('🔴 حدث خطأ في معالجة الطلب', 'error');
+                }
+            }).catch(err => {
+                console.log('Simulated order:', orderData);
+                showNotification('✓ تم استلام الطلب بنجاح! (الوضع التجريبي)', 'success');
+                state.cart = [];
+                updateCart();
+                closeCheckoutModal();
+            });
+        }
+
+        function sendWhatsAppNotifications() {
+            // Simulate sending WhatsApp notifications to followers
+            if (state.notifications.size > 0) {
+                const stores = Array.from(state.notifications).join('، ');
+                console.log(`📱 Sending WhatsApp to followers of: ${stores}`);
+                showNotification(`📱 تم إرسال إشعارات واتساب فورية للمتابعين!`, 'success');
+            }
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.remove('active');
+        }
+
+        // Notification System
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 4000);
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('checkoutModal');
+            if (event.target === modal) {
+                closeCheckoutModal();
+            }
+        });
+
+        // Keyboard shortcut to close modal
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeCheckoutModal();
+            }
+        });
+    </script>
+</body>
+</html>
