@@ -1,0 +1,12 @@
+[
+  {
+    "id": "admin",
+    "username": "admin",
+    "email": "admin@example.local",
+    "password_hash": "", 
+    "role": "Business",
+    "status": "Active",
+    "kyc_verified": true,
+    "created_at": "2026-09-05T00:00:00Z"
+  }
+]

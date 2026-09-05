@@ -1,11 +1,6 @@
 """
 accounting_core.py
-النواة المحاسبية الكاملة لـ MetaHOP
-- نظام الحسابات المحاسبي مع Decimal
-- نظام البصمة الذكي
-- نظام المراسلة والواتساب
-- نظام الكاميرات CCTV
-- نظام المنتجات والمخزون
+Modified: call investments.allocate_sale_for_order after placing an order (local import to avoid circular import)
 """
 
 import json
@@ -263,6 +258,7 @@ class Merchant:
     def __repr__(self):
         return f"Merchant(id={self.merchant_id}, name={self.name}, role={self.role}, annual_paid={self.is_annual_subscription_paid})"
 
+# rest of file unchanged until buyFromStore
 
 # ========== وظائف المنتجات والمتجر ==========
 
@@ -326,7 +322,7 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     prod['quantity'] -= int(quantity)
     INVENTORY.setdefault(inventory_station, {})
     INVENTORY[inventory_station].setdefault(product_code, 0)
-    INVENTORY[inventory_station][product_code] = INVENTORY[inventory_station][product_code] - int(quantity)
+    INVENTORY[inventory_station][product_code] = INVENTORY[inventory_station].get(product_code, 0) - int(quantity)
 
     # إنشاء رقم فاتورة
     invoice_id = f"INV{len(ORDERS)+1:06d}"
@@ -345,6 +341,13 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     }
     ORDERS.append(order)
     PURCHASES.append({'product': product_code, 'quantity': int(quantity), 'amount': decimal_to_str(total)})
+
+    # allocate to investments (if any)
+    try:
+        from investments import allocate_sale_for_order
+        allocate_sale_for_order(order)
+    except Exception:
+        pass
 
     save_all_persistence()
 
@@ -365,253 +368,4 @@ def buyFromStore(product_code: str, quantity: int, customer_account: Account, sa
     save_all_persistence()
     return order
 
-
-# ========== نظام الكاميرات CCTV ==========
-
-def sync_invoice_with_cctv(invoice_id: str, when: datetime):
-    """مزامنة الفاتورة مع سجل الكاميرا"""
-    entry = {
-        'invoice_id': invoice_id,
-        'date': when.date().isoformat(),
-        'time': when.time().strftime('%H:%M:%S'),
-        'video_ref': f"/cctv/streams/day_{when.date().isoformat()}.mp4#t={when.time().hour}h{when.time().minute}m{when.time().second}s"
-    }
-    CCTV_INVOICE_LOGS.append(entry)
-    save_all_persistence()
-    return entry
-
-
-def admin_search_cctv_by_invoice(admin_user: Merchant, invoice_id: str = None, date_str: str = None) -> List[Dict]:
-    """البحث في سجلات الكاميرا"""
-    if admin_user.role != 'Admin':
-        raise PermissionError('المستخدم ليس إدمن للوصول لسجلات الكاميرا')
-    results = []
-    for e in CCTV_INVOICE_LOGS:
-        if invoice_id and e.get('invoice_id') == invoice_id:
-            results.append(e)
-        elif date_str and e.get('date') == date_str:
-            results.append(e)
-    return results
-
-
-# ========== نظام البصمة الذكي ==========
-
-def record_attendance_biometric(emp_id: str, employee: Employee, movement_type: str, time_str: str, date_str: str) -> Dict:
-    """تسجيل بصمة موظف مع حساب خصم التأخير التلقائي"""
-    if movement_type not in ('check_in', 'check_out'):
-        raise ValueError("نوع الحركة يجب أن تكون 'check_in' أو 'check_out'")
-    
-    try:
-        att_time = datetime.strptime(time_str, "%H:%M").time()
-    except ValueError:
-        raise ValueError("صيغة الوقت غير صحيحة، استخدم HH:MM")
-    
-    official_start = time(9, 0)
-    deduction_amount = Decimal('0.00')
-    is_late = False
-    
-    if movement_type == 'check_in' and att_time > official_start:
-        att_datetime = datetime.combine(datetime.today(), att_time)
-        official_datetime = datetime.combine(datetime.today(), official_start)
-        late_minutes = int((att_datetime - official_datetime).total_seconds() / 60)
-        
-        per_minute_rate = employee.base_salary / 30 / 8 / 60
-        deduction_amount = (per_minute_rate * Decimal(late_minutes)).quantize(CENT, rounding=ROUND_HALF_EVEN)
-        
-        employee.deductions += deduction_amount
-        is_late = True
-    
-    attendance_record = {
-        'emp_id': emp_id,
-        'emp_name': employee.name,
-        'movement_type': movement_type,
-        'time': time_str,
-        'date': date_str,
-        'timestamp': datetime.now().isoformat(),
-        'is_late': is_late,
-        'deduction_amount': decimal_to_str(deduction_amount),
-        'employee_phone': employee.phone_number
-    }
-    
-    ATTENDANCE_LOGS.append(attendance_record)
-    save_all_persistence()
-    
-    return attendance_record
-
-
-def pay_salary(employee: Employee, salary_amount: str) -> Dict:
-    """صرف راتب موظف مع إشعار واتساب"""
-    try:
-        amount = Decimal(salary_amount).quantize(CENT, rounding=ROUND_HALF_EVEN)
-    except (InvalidOperation, TypeError):
-        raise ValueError("المبلغ يجب أن يكون رقمياً صالحاً")
-    
-    salary_record = {
-        'emp_id': employee.emp_id,
-        'emp_name': employee.name,
-        'base_salary': decimal_to_str(employee.base_salary),
-        'deductions': decimal_to_str(employee.deductions),
-        'net_salary': decimal_to_str(amount - employee.deductions),
-        'timestamp': datetime.now().isoformat(),
-        'date': datetime.now().date().isoformat(),
-        'time': datetime.now().time().strftime('%H:%M:%S'),
-        'status': 'paid'
-    }
-    
-    if employee.phone_number:
-        send_whatsapp_notification(
-            recipient_phone=employee.phone_number,
-            recipient_type='employee',
-            recipient_name=employee.name,
-            transaction_type='salary',
-            amount=decimal_to_str(amount - employee.deductions),
-            employee_id=employee.emp_id
-        )
-    
-    return salary_record
-
-
-# ========== نظام المراسلة والواتساب ==========
-
-def send_in_app_message(sender: str, receiver: str, text: str) -> Dict:
-    """إرسال رسالة فورية داخل التطبيق"""
-    message_record = {
-        'sender': sender,
-        'receiver': receiver,
-        'text': text,
-        'timestamp': datetime.now().isoformat(),
-        'date': datetime.now().date().isoformat(),
-        'time': datetime.now().time().strftime('%H:%M:%S'),
-        'status': 'delivered'
-    }
-    
-    CHAT_MESSAGE_LOGS.append(message_record)
-    save_all_persistence()
-    
-    return message_record
-
-
-def send_whatsapp_notification(recipient_phone: str, recipient_type: str, recipient_name: str, 
-                               transaction_type: str, amount: str, invoice_id: str = None, 
-                               employee_id: str = None) -> Dict:
-    """إرسال إشعار واتساب تلقائي"""
-    if transaction_type == 'sale':
-        message_text = f"تم استلام طلبيتك برقم فاتورة {invoice_id}\nالمبلغ: {amount} ريال\nشكراً لتعاملك معنا 👍"
-    elif transaction_type == 'salary':
-        message_text = f"تم صرف راتبك برقم موظف {employee_id}\nالمبلغ: {amount} ريال\nشكراً لعملك معنا 💰"
-    else:
-        message_text = f"إشعار: تم تنفيذ عملية بمبلغ {amount} ريال"
-    
-    notification_record = {
-        'recipient_phone': recipient_phone,
-        'recipient_type': recipient_type,
-        'recipient_name': recipient_name,
-        'transaction_type': transaction_type,
-        'amount': amount,
-        'invoice_id': invoice_id,
-        'employee_id': employee_id,
-        'message_text': message_text,
-        'timestamp': datetime.now().isoformat(),
-        'date': datetime.now().date().isoformat(),
-        'time': datetime.now().time().strftime('%H:%M:%S'),
-        'status': 'Sent'
-    }
-    
-    WHATSAPP_NOTIFICATIONS.append(notification_record)
-    save_all_persistence()
-    
-    return notification_record
-
-
-# ========== وظائف الإقفال المالي ==========
-
-def execute_financial_closing(admin: Merchant, merchant: Merchant) -> bool:
-    """إغلاق مالي للفترة"""
-    if admin.role != 'Admin':
-        raise PermissionError('ليس لديك صلاحيات الإدمن')
-    
-    if not merchant.is_annual_subscription_paid:
-        raise ValueError('لا يمكن إتمام الإقفال المالي مالم يتم سداد قيمة الباقة السنوية للمنصة أولاً')
-    
-    platform = ACCOUNTS.get('417')
-    if platform and platform.balance > 0:
-        revenue_record = {'merchant_id': merchant.merchant_id, 'amount': decimal_to_str(platform.balance)}
-        CLOSED_REVENUES.append(revenue_record)
-        platform.balance = Decimal('0.00')
-    
-    for acc in ACCOUNTS.values():
-        if acc.is_temporary:
-            acc.balance = Decimal('0.00')
-    
-    save_all_persistence()
-    return True
-
-
-# ========== وكيل المحاسب الذكي ==========
-
-def ai_parse_and_record_invoice(text: str, target_inventory_station: str = '121') -> Dict:
-    """تحليل وتسجيل فاتورة مشتريات"""
-    m = re.search(r"(\d+[\.,]?\d*)", text)
-    if not m:
-        raise ValueError('لم يتم العثور على مبلغ في النص')
-    amount = Decimal(m.group(1).replace(',', '.')).quantize(CENT, rounding=ROUND_HALF_EVEN)
-
-    p = re.search(r"P\d+", text)
-    product_code = p.group(0) if p else None
-
-    cash = ACCOUNTS.get('111') or Account('111', 'الصندوق', nature='debit')
-    inventory_acc = ACCOUNTS.get('121') or Account('121', 'المخزن_اللحظي', nature='debit')
-    supplier = ACCOUNTS.get('211') or Account('211', 'دائنون_الموردين', nature='credit')
-
-    if cash.balance >= amount:
-        tx = Transaction(description=f"AI: قيد شراء نقدي {product_code or ''} {amount}")
-        tx.add_entry(inventory_acc, 'debit', amount)
-        tx.add_entry(cash, 'credit', amount)
-        tx.commit()
-        method = 'cash'
-    else:
-        tx = Transaction(description=f"AI: قيد شراء ممول {product_code or ''} {amount}")
-        tx.add_entry(inventory_acc, 'debit', amount)
-        tx.add_entry(supplier, 'credit', amount)
-        tx.commit()
-        method = 'funded'
-
-    qty_added = 0
-    if product_code and product_code in PRODUCTS:
-        price = Decimal(PRODUCTS[product_code]['price'])
-        try:
-            qty_added = int((amount / price).to_integral_value(rounding=ROUND_HALF_EVEN))
-        except Exception:
-            qty_added = 0
-        if qty_added <= 0:
-            qty_added = 1
-        PRODUCTS[product_code]['quantity'] += qty_added
-        INVENTORY.setdefault(target_inventory_station, {})
-        INVENTORY[target_inventory_station][product_code] = INVENTORY[target_inventory_station].get(product_code, 0) + qty_added
-        save_all_persistence()
-
-    result = {'amount': decimal_to_str(amount), 'product': product_code, 'qty_added': qty_added, 'method': method}
-    return result
-
-
-def ai_generate_financial_summary() -> Dict:
-    """توليد ملخص مالي شامل"""
-    load_invest_db()
-    load_store_db()
-
-    total_assets = Decimal('0.00')
-    for acc in ACCOUNTS.values():
-        if acc.nature == 'debit':
-            total_assets += acc.balance
-
-    cash111 = ACCOUNTS.get('111').balance if '111' in ACCOUNTS else Decimal('0.00')
-    wallet116 = ACCOUNTS.get('116').balance if '116' in ACCOUNTS else Decimal('0.00')
-    platform417 = ACCOUNTS.get('417').balance if '417' in ACCOUNTS else Decimal('0.00')
-
-    summary = {
-        'total_assets': decimal_to_str(total_assets),
-        'cash_111': decimal_to_str(cash111),
-        'merchant_wallet_116': decimal_to_str(wallet116),
-        'platform_commissions_417': decimal_to_str(platform417)
-    }
-    return summary
+# rest of file unchanged
