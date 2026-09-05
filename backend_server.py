@@ -1,10 +1,17 @@
 """
 backend_server.py
-خادم Flask لـ MetaHOP مع 5 نقاط API رئيسية
-تم تحديث نقطة /api/attendance على فرع feature/attendance-offline: حساب دقائق التأخير بالـ Decimal، حفظ أوفلاين في مجلد data كـ JSON، ومنطق تحذير تراكمي وإعداد رسالة واتساب.
+خادم Flask لـ MetaHOP مع نظام تحقق مبسط: تسجيل/تسجيل دخول/جلسات، وحماية لصفحات إدارية واستثمارية.
+تم إضافة:
+- تخزين المستخدمين في users.json (مؤقت أثناء التطوير)
+- نقاط نهاية: /register/personal, /register/business, /login, /logout
+- حماية صفحات: /admin (تحتاج دور Business وstatus Active)، /investments (تحتاج دور Personal)
+- تعديل /api/admin/cctv للتحقق من جلسة المستخدم وصلاحياته
+- استخدام werkzeug.security لتجزئة كلمات المرور
+
+ملاحظة: تأكد من تغيير SECRET_KEY في البيئة عند النشر.
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session, redirect, url_for, send_from_directory, abort
 from accounting_core import (
     load_store_db, load_invest_db, save_all_persistence,
     PRODUCTS, ACCOUNTS, ORDERS, CCTV_INVOICE_LOGS, ATTENDANCE_LOGS, 
@@ -18,14 +25,19 @@ from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta
 import os
 import json
+import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+# Change this in production to something secret and coming from env/config
+app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_change_me')
 
 # Data files for offline storage (branch: feature/attendance-offline)
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 ATT_JSON = os.path.join(DATA_DIR, 'attendance_offline.json')
 WARN_JSON = os.path.join(DATA_DIR, 'warnings_offline.json')
 WHATSAPP_JSON = os.path.join(DATA_DIR, 'whatsapp_offline.json')
+USERS_JSON = os.path.join(DATA_DIR, 'users.json')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
@@ -44,13 +56,211 @@ def _write_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-# تحميل البيانات عند بدء السيرفر
+# ----------------- Users helpers -----------------
+def load_users():
+    users = _read_json(USERS_JSON)
+    if not isinstance(users, list):
+        users = []
+    return users
+
+
+def save_users(users):
+    _write_json(USERS_JSON, users)
+
+
+def find_user_by_id(user_id):
+    users = load_users()
+    for u in users:
+        if u.get('id') == user_id:
+            return u
+    return None
+
+
+def find_user_by_identifier(identifier):
+    # identifier can be email or username
+    users = load_users()
+    for u in users:
+        if u.get('email') == identifier or u.get('username') == identifier:
+            return u
+    return None
+
+
+def create_user(user_obj):
+    users = load_users()
+    users.append(user_obj)
+    save_users(users)
+    return user_obj
+
+
+# ----------------- Initialization -----------------
 @app.before_request
 def initialize():
     if not hasattr(app, 'initialized'):
         load_store_db()
         load_invest_db()
+        # ensure users.json exists
+        if not os.path.exists(USERS_JSON):
+            save_users([])
         app.initialized = True
+
+
+# ----------------- Authentication Routes -----------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        # serve login page file
+        return send_from_directory(os.path.dirname(__file__), 'login.html')
+
+    data = request.get_json() or request.form or {}
+    identifier = data.get('identifier') or data.get('email') or data.get('username')
+    password = data.get('password')
+
+    if not identifier or not password:
+        return jsonify({'status': 'error', 'message': 'identifier and password required'}), 400
+
+    user = find_user_by_identifier(identifier)
+    if not user:
+        return jsonify({'status': 'error', 'message': 'user not found'}), 404
+
+    if not check_password_hash(user.get('password_hash', ''), password):
+        return jsonify({'status': 'error', 'message': 'invalid credentials'}), 401
+
+    if user.get('role') == 'Business' and user.get('status') != 'Active':
+        return jsonify({'status': 'error', 'message': 'Business account pending activation'}), 403
+
+    # set session
+    session['user_id'] = user['id']
+    session['role'] = user.get('role')
+
+    # route based on role
+    if user.get('role') == 'Business':
+        return jsonify({'status': 'success', 'message': 'Logged in', 'redirect': '/admin'}), 200
+    else:
+        return jsonify({'status': 'success', 'message': 'Logged in', 'redirect': '/investments'}), 200
+
+
+@app.route('/logout', methods=['POST', 'GET'])
+def logout():
+    session.pop('user_id', None)
+    session.pop('role', None)
+    return redirect('/login')
+
+
+@app.route('/register/personal', methods=['GET', 'POST'])
+def register_personal():
+    if request.method == 'GET':
+        return send_from_directory(os.path.dirname(__file__), 'register_personal.html')
+
+    data = request.get_json() or request.form or {}
+    username = data.get('username')
+    email = data.get('email')
+    phone = data.get('phone')
+    password = data.get('password')
+    confirm = data.get('confirm_password') or data.get('confirm')
+
+    if not username or not email or not password or not confirm:
+        return jsonify({'status': 'error', 'message': 'missing required fields'}), 400
+
+    if password != confirm:
+        return jsonify({'status': 'error', 'message': 'passwords do not match'}), 400
+
+    if find_user_by_identifier(email) or find_user_by_identifier(username):
+        return jsonify({'status': 'error', 'message': 'user already exists'}), 400
+
+    user_obj = {
+        'id': str(uuid.uuid4()),
+        'type': 'personal',
+        'username': username,
+        'email': email,
+        'phone': phone,
+        'password_hash': generate_password_hash(password),
+        'role': 'Personal',
+        'status': 'Active',
+        'created_at': datetime.utcnow().isoformat() + 'Z'
+    }
+
+    create_user(user_obj)
+
+    # auto-login personal user
+    session['user_id'] = user_obj['id']
+    session['role'] = user_obj['role']
+
+    return jsonify({'status': 'success', 'message': 'Personal account created', 'redirect': '/investments'}), 201
+
+
+@app.route('/register/business', methods=['GET', 'POST'])
+def register_business():
+    if request.method == 'GET':
+        return send_from_directory(os.path.dirname(__file__), 'register_business.html')
+
+    data = request.get_json() or request.form or {}
+    company_name = data.get('company_name')
+    tax_number = data.get('tax_number')
+    commercial_registration = data.get('commercial_registration')
+    company_email = data.get('company_email')
+    manager_phone = data.get('manager_phone')
+    password = data.get('password')
+    confirm = data.get('confirm_password') or data.get('confirm')
+
+    if not all([company_name, tax_number, commercial_registration, company_email, manager_phone, password, confirm]):
+        return jsonify({'status': 'error', 'message': 'missing required fields'}), 400
+
+    if password != confirm:
+        return jsonify({'status': 'error', 'message': 'passwords do not match'}), 400
+
+    if find_user_by_identifier(company_email):
+        return jsonify({'status': 'error', 'message': 'company email already registered'}), 400
+
+    user_obj = {
+        'id': str(uuid.uuid4()),
+        'type': 'business',
+        'company_name': company_name,
+        'tax_number': tax_number,
+        'commercial_registration': commercial_registration,
+        'email': company_email,
+        'manager_phone': manager_phone,
+        'password_hash': generate_password_hash(password),
+        'role': 'Business',
+        'status': 'Pending',  # important: pending until admin activates
+        'created_at': datetime.utcnow().isoformat() + 'Z'
+    }
+
+    create_user(user_obj)
+
+    return jsonify({'status': 'success', 'message': 'Business account created, pending activation by admin'}), 201
+
+
+# ----------------- Protected page routes -----------------
+def require_login(role_required=None):
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            user_id = session.get('user_id')
+            if not user_id:
+                return redirect('/login')
+            user = find_user_by_id(user_id)
+            if not user:
+                session.pop('user_id', None)
+                session.pop('role', None)
+                return redirect('/login')
+            if role_required and user.get('role') != role_required:
+                abort(403)
+            return f(*args, **kwargs)
+        wrapper.__name__ = f.__name__
+        return wrapper
+    return decorator
+
+
+@app.route('/admin', methods=['GET'])
+@require_login(role_required='Business')
+def admin_page():
+    # serve the admin.html file from repo only to logged-in Business users
+    return send_from_directory(os.path.dirname(__file__), 'admin.html')
+
+
+@app.route('/investments', methods=['GET'])
+@require_login(role_required='Personal')
+def investments_page():
+    return send_from_directory(os.path.dirname(__file__), 'investments.html')
 
 
 # ========== API 1: GET /api/products - السلة والمتجر ==========
@@ -120,7 +330,7 @@ def buy_product():
 # ====== API 3: POST /api/attendance - بصمة الموظف (محدثة: تخزين أوفلاين، حساب Decimal، إنذارات واتساب) ======
 @app.route('/api/attendance', methods=['POST'])
 def record_attendance():
-    """تسجيل بصمة الموظف (دخول/خروج) مع حساب دقائق التأخير بالـ Decimal، حفظ أوفلاين، ومنطق التحذير التراكمي + إشعار واتساب."""
+    """تنفيذ تسجيل الحضور (existing code preserved)"""
     try:
         data = request.get_json() or {}
         emp_id = data.get('emp_id')
@@ -333,22 +543,23 @@ def get_messages(receiver):
 # ========== API 5: GET /api/admin/cctv - بحث الكاميرات للإدمن ==========
 @app.route('/api/admin/cctv', methods=['GET'])
 def search_cctv():
-    """البحث في سجلات الكاميرا (للمدير فقط)"""
+    """البحث في سجلات الكاميرا (للمدير فقط) - الآن محمي عبر الجلسات"""
     try:
-        admin_id = request.args.get('admin_id')
+        # ensure logged in business user
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'authentication required'}), 401
+        user = find_user_by_id(user_id)
+        if not user or user.get('role') != 'Business' or user.get('status') != 'Active':
+            return jsonify({'status': 'error', 'message': 'admin privileges required'}), 403
+
         invoice_id = request.args.get('invoice_id')
         date_str = request.args.get('date')
-        
-        if not admin_id:
-            return jsonify({'status': 'error', 'message': 'معرف الإدمن مطلوب'}), 400
-        
-        # التحقق من أن المستخدم إدمن
-        admin = Merchant(admin_id, 'Admin', role='Admin')
         
         if not invoice_id and not date_str:
             return jsonify({'status': 'error', 'message': 'أدخل رقم فاتورة أو تاريخ'}), 400
         
-        results = admin_search_cctv_by_invoice(admin, invoice_id=invoice_id, date_str=date_str)
+        results = admin_search_cctv_by_invoice(Merchant(user_id, user.get('company_name','Admin'), role='Admin'), invoice_id=invoice_id, date_str=date_str)
         
         return jsonify({
             'status': 'success',
@@ -365,7 +576,6 @@ def search_cctv():
 
 
 # ========== API إضافية: الملخص المالي والإشعارات ==========
-
 @app.route('/api/summary', methods=['GET'])
 def financial_summary():
     """الملخص المالي الشامل"""
@@ -432,7 +642,6 @@ def get_whatsapp_notifications():
 
 
 # ========== معالجة الأخطاء ==========
-
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'status': 'error', 'message': 'الصفحة غير موجودة'}), 404
