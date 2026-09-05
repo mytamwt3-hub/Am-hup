@@ -2,8 +2,8 @@
   {
     "id": "admin",
     "username": "admin",
-    "email": "admin@example.local",
-    "password_hash": "", 
+    "email": "mytamwt3@gmail.com",
+    "password_hash": "",
     "role": "Business",
     "status": "Active",
     "kyc_verified": true,
