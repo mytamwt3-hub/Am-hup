@@ -1,361 +1,364 @@
-# 🚀 دليل البدء السريع - MetaHub Platform
+# 🚀 Quick Start Guide - Am-hup Multi-Tenancy Platform
 
-## ⚡ البدء في 5 دقائق
+## Prerequisites
 
-### الخطوة 1: نسخ المشروع (30 ثانية)
+- Python 3.10+
+- PostgreSQL 13+
+- pip / venv
 
+## Installation
+
+### 1. Clone Repository
 ```bash
 git clone https://github.com/mytamwt3-hub/Am-hup.git
 cd Am-hup
+git checkout refactor/multi-tenancy-core
 ```
 
-### الخطوة 2: تثبيت المتطلبات (2 دقيقة)
-
+### 2. Setup Python Environment
 ```bash
-# إنشاء بيئة افتراضية
 python -m venv venv
-
-# تفعيل البيئة
-# على Windows:
-venv\Scripts\activate
-# على macOS/Linux:
-source venv/bin/activate
-
-# تثبيت المكتبات
-pip install flask python-dotenv pytest requests
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-### الخطوة 3: تشغيل السيرفر (30 ثانية)
-
+### 3. Install Dependencies
 ```bash
-python backend_server.py
+cd backend
+pip install -r requirements.txt
 ```
 
-### الخطوة 4: فتح المنصة (1 دقيقة)
+### 4. Setup Database
 
-افتح المتصفح وانسخ أحد هذه الروابط:
-
----
-
-## 🌐 الواجهات الرئيسية (مع الروابط المباشرة)
-
-### 1️⃣ **الصفحة الرئيسية**
-```
-🖥️ http://localhost:5000/
-📱 https://am-hup.vercel.app/
-```
-**ماذا تجد**: عرض مميزات المنصة، شريط المميزات التفاعلي، Neon Design
-
----
-
-### 2️⃣ **لوحة التحكم المحاسبية** ⭐
-```
-🖥️ http://localhost:5000/admin.html
-```
-**المميزات**:
-- ✅ عرض المقاييس المالية (💰 إجمالي الأصول، 🏦 الصندوق، 📊 محفظة التاجر، 🔌 العمولات)
-- ✅ إنشاء فواتير رسمية (INV-2026-001)
-- ✅ جدول الفاتورة مع الحسابات والضرائب
-- ✅ نظام البحث الأمني (CCTV)
-- ✅ قفل نهاية السنة المالية
-
-**تجربة سريعة**:
-1. انقر على "إنشاء فاتورة جديدة"
-2. أدخل: الرقم، التاريخ، اسم العميل، الهوية
-3. اضغط "إنشاء"
-4. شاهد الفاتورة الرسمية مع الحسابات
-
----
-
-### 3️⃣ **إدارة الاستثمارات**
-```
-🖥️ http://localhost:5000/investments.html
-```
-**المميزات**:
-- ✅ إنشاء محفظة استثمارية
-- ✅ عرض الاستثمارات النشطة
-- ✅ حساب معدل العائد (ROI)
-- ✅ توزيع الأرباح التلقائي
-- ✅ رسوم بيانية الأداء
-
----
-
-### 4️⃣ **إدارة الموظفين**
-```
-🖥️ http://localhost:5000/employees.html
-```
-**المميزات**:
-- ✅ إضافة موظفين
-- ✅ نظام الحضور والانصراف
-- ✅ حسابات الرواتب
-- ✅ التقارير الشهرية
-
----
-
-### 5️⃣ **التسجيل والدخول**
-```
-🖥️ تسجيل الدخول: http://localhost:5000/login.html
-🖥️ تسجيل شخصي: http://localhost:5000/register_personal.html
-🖥️ تسجيل تجاري: http://localhost:5000/register_business.html
-```
-
----
-
-## 👤 بيانات دخول تجريبية
-
-```
-════════════════════════════════════════════
-مدير النظام (Admin)
-════════════════════════════════════════════
-📧 البريد: admin@metahop.sa
-🔑 كلمة المرور: Admin@123456
-
-════════════════════════════════════════════
-مدير مالي (Financial Manager)
-════════════════════════════════════════════
-📧 البريد: manager@metahop.sa
-🔑 كلمة المرور: Manager@123456
-
-════════════════════════════════════════════
-مستخدم عادي (Regular User)
-════════════════════════════════════════════
-📧 البريد: user@metahop.sa
-🔑 كلمة المرور: User@123456
-```
-
----
-
-## 🧪 تشغيل الاختبارات
-
+**Option A: PostgreSQL Local**
 ```bash
-# اختبارات المحاسبة
-pytest test_accounting.py -v
+# Create database
+psql -U postgres
+CREATE DATABASE am_hup_v2;
+\q
 
-# اختبارات النظام الكامل
-pytest test_meta_hub.py -v
-
-# جميع الاختبارات
-pytest -v
+# Apply migrations
+psql -U postgres -d am_hup_v2 -f ../database/migrations/001_init_schema.sql
 ```
 
----
-
-## 📁 الملفات التوثيقية الكاملة
-
-```
-📚 اقرأ التوثيق الشامل:
-
-📖 docs/UI_COMPONENTS_GUIDE.md
-   └─ دليل مكونات الواجهة والتصاميم
-
-📖 docs/SYSTEM_ARCHITECTURE.md
-   └─ معمارية النظام والأنظمة الفرعية
-
-📖 docs/SETUP_AND_INSTALLATION.md
-   └─ دليل التثبيت والتشغيل المفصل
-
-📖 docs/PROJECT_FILE_STRUCTURE.md
-   └─ شجرة ملفات المشروع الكاملة
-```
-
----
-
-## 🎨 نظام الألوان (Neon Design)
-
-```css
-/* الألوان الأساسية المستخدمة */
-
-Neon Cyan:    #00d4ff / #00ffff    (العناوين الرئيسية)
-Neon Purple:  #aa00ff              (التركيزات الثانوية)
-Neon Orange:  #ff9900              (التنبيهات والعمليات)
-Neon Red:     #ff4444 / #ff6666    (الأخطاء والتحذيرات)
-Success Green: #00ff00              (رسائل النجاح)
-Dark Background: #0a0e27 / #070617 (الخلفيات)
-```
-
----
-
-## 🔧 الأوامر السريعة
-
+**Option B: Using SQLite (for development/testing)**
 ```bash
-# تشغيل السيرفر
-python backend_server.py
+# Just run the app, SQLite will auto-create
+```
 
-# تشغيل مع Debug
-FLASK_DEBUG=1 python backend_server.py
+### 5. Configure Environment
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
+```
 
-# تشغيل على منفذ مختلف
-python backend_server.py --port=8000
+### 6. Run Server
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
-# اختبار سريع
-pytest test_accounting.py -v
+Server will start at: `http://localhost:8000`
 
-# حذف ملفات مؤقتة
-rm -rf __pycache__ .pytest_cache
+---
 
-# إنشاء نسخة احتياطية
-cp metahub.db metahub.backup-$(date +%Y%m%d).db
+## API Endpoints
+
+### 🔐 Authentication
+
+#### Register Company
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "company@example.com",
+    "password": "SecurePass123!",
+    "full_name": "My Company",
+    "phone": "+966501234567",
+    "entity_type": "company",
+    "entity_name": "My Company Inc."
+  }'
+```
+
+**Response**:
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_email": "company@example.com",
+  "entity_type": "company"
+}
+```
+
+#### Register Establishment (Under Company)
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "establishment@example.com",
+    "password": "SecurePass123!",
+    "full_name": "Dubai Branch",
+    "phone": "+966509876543",
+    "entity_type": "establishment",
+    "entity_name": "Dubai Establishment",
+    "parent_email": "company@example.com"
+  }'
+```
+
+#### Register Branch (Under Establishment)
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "branch@example.com",
+    "password": "SecurePass123!",
+    "full_name": "Store 1",
+    "phone": "+966505555555",
+    "entity_type": "branch",
+    "entity_name": "Dubai Store",
+    "parent_email": "establishment@example.com"
+  }'
+```
+
+#### Login
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "company@example.com",
+    "password": "SecurePass123!"
+  }'
 ```
 
 ---
 
-## 🌐 الروابط المهمة
+### 🏢 Tenant Management
 
-### الموقع الحي
-```
-🌍 https://am-hup.vercel.app/
-```
-
-### المستودع
-```
-🐙 https://github.com/mytamwt3-hub/Am-hup
+#### Get Current Tenant
+```bash
+curl -X GET http://localhost:8000/api/v1/tenants/me \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID"
 ```
 
-### المشاكل والاقتراحات
-```
-📝 https://github.com/mytamwt3-hub/Am-hup/issues
-```
-
----
-
-## ❓ الأسئلة الشائعة
-
-### س: كيف أشغل المتجر الإلكتروني؟
-**ج**: افتح `http://localhost:5000/` وستجد العروض والمنتجات
-
-### س: كيف أنشئ فاتورة؟
-**ج**: 
-1. افتح `http://localhost:5000/admin.html`
-2. انتقل لقسم "نموذج الفاتورة"
-3. أدخل البيانات واضغط "إنشاء فاتورة جديدة"
-
-### س: كيف أقوم باستثمار؟
-**ج**: 
-1. افتح `http://localhost:5000/investments.html`
-2. انقر "استثمار جديد"
-3. أدخل المنتج والكمية والسعر
-4. اضغط تأكيد
-
-### س: كيف أشغل الاختبارات؟
-**ج**: شغل `pytest test_accounting.py -v` من الكونسول
-
-### س: أين قاعدة البيانات؟
-**ج**: `data/metahub.db` (ملف SQLite محلي)
-
----
-
-## ⚠️ نصائح مهمة
-
-```
-🔴 لا تنسَ:
-   ├─ تفعيل البيئة الافتراضية (venv)
-   ├─ تثبيت جميع المكتبات (pip install)
-   └─ التأكد من عدم انشغال المنفذ 5000
-
-✅ تذكّر:
-   ├─ البيانات محفوظة في metahub.db
-   ├─ يمكنك حذف .db وإعادة إنشاء قاعدة جديدة
-   └─ الاختبارات مهمة للتأكد من السلامة
+#### Update Tenant
+```bash
+curl -X PATCH http://localhost:8000/api/v1/tenants/me \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Updated Name",
+    "currency": "SAR"
+  }'
 ```
 
 ---
 
-## 🚨 استكشاف الأخطاء السريع
+### 🏪 Branch Management
 
+#### Create Branch
+```bash
+curl -X POST http://localhost:8000/api/v1/branches \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Dubai Store",
+    "code": "DXB-001",
+    "address": "123 Main St",
+    "city": "Dubai",
+    "country": "AE",
+    "phone": "+971501234567",
+    "email": "dubai@store.com",
+    "manager_name": "Ahmed Al-Mazrouei",
+    "latitude": "25.2048",
+    "longitude": "55.2708"
+  }'
 ```
-❌ "Port 5000 is already in use"
-→ استخدم منفذ مختلف: python backend_server.py --port=8000
 
-❌ "ModuleNotFoundError: No module named 'flask'"
-→ ثبّت المكتبات: pip install -r requirements.txt
-
-❌ "Database locked"
-→ حذف metahub.db وأعد التشغيل
-
-❌ "Tests failed"
-→ تأكد من تفعيل البيئة الافتراضية
+#### List Branches
+```bash
+curl -X GET http://localhost:8000/api/v1/branches \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID"
 ```
 
----
-
-## 📊 مثال على سيناريو تجريبي كامل
-
+#### Get Specific Branch
+```bash
+curl -X GET http://localhost:8000/api/v1/branches/{branch_id} \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID"
 ```
-الخطوة 1: تسجيل دخول
-├─ افتح: http://localhost:5000/login.html
-├─ أدخل: admin@metahop.sa / Admin@123456
-└─ اضغط: Login
 
-الخطوة 2: الذهاب للوحة التحكم
-├─ انقر على: لوحة التحكم
-└─ ستشاهد: المقاييس المالية الحية
+#### Update Branch
+```bash
+curl -X PATCH http://localhost:8000/api/v1/branches/{branch_id} \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "manager_name": "New Manager",
+    "phone": "+971509999999"
+  }'
+```
 
-الخطوة 3: إنشاء فاتورة
-├─ انقر: إنشاء فاتورة جديدة
-├─ أدخل:
-│   ├─ رقم: INV-2026-001
-│   ├─ التاريخ: 2026-09-05
-│   ├─ العميل: أحمد محمد
-│   └─ الهوية: 1234567890
-└─ اضغط: إنشاء
-
-الخطوة 4: عرض الفاتورة
-├─ ستشاهد: الفاتورة الرسمية مع:
-│   ├─ بيانات الشركة والعميل
-│   ├─ جدول المنتجات
-│   ├─ الضريبة (15%)
-│   └─ الإجمالي النهائي
-└─ يمكنك: طباعة أو تصدير
-
-الخطوة 5: إنشاء استثمار
-├─ افتح: investments.html
-├─ أدخل:
-│   ├─ المنتج: iPhone 15
-│   ├─ الكمية: 10
-│   ├─ السعر: 3990
-│   └─ الشروط: موافق عليها
-└─ اضغط: تأكيد الاستثمار
-
-الخطوة 6: عرض المحفظة
-├─ ستشاهد: محفظة استثمارية جديدة
-│   ├─ رقم الاستثمار: INV-2026-00001
-│   ├─ المنتج: iPhone 15
-│   ├─ الكمية: 10 / 10
-│   ├─ الرصيد: 39,900 ريال
-│   └─ الأرباح: 0 ريال
-└─ انتظر المبيعات لتراكم الأرباح
+#### Delete Branch (Soft Delete)
+```bash
+curl -X DELETE http://localhost:8000/api/v1/branches/{branch_id} \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID"
 ```
 
 ---
 
-## 🎯 الخطوات التالية
+### 📡 WebSocket Notifications
 
-بعد الانتهاء من البدء السريع:
+#### Connect to Notifications
+```javascript
+// JavaScript
+const token = "YOUR_JWT_TOKEN";
+const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/notifications?token=${token}`);
 
-```
-□ اقرأ دليل مكونات الواجهة (UI_COMPONENTS_GUIDE.md)
-□ ادرس معمارية النظام (SYSTEM_ARCHITECTURE.md)
-□ اختبر جميع الوحدات (pytest)
-□ جرّب سيناريوهات مختلفة
-□ أضف ميزات جديدة حسب احتياجاتك
-□ شارك ملاحظاتك وتحسيناتك
+ws.onopen = () => {
+  console.log("Connected to notifications");
+  ws.send(JSON.stringify({ type: "ping" }));
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  console.log("Notification:", message);
+};
+
+ws.onerror = (error) => {
+  console.error("WebSocket error:", error);
+};
 ```
 
 ---
 
-## 📞 الدعم
+## Testing
 
+### Run All Tests
+```bash
+cd backend
+pytest tests/ -v
 ```
-📧 البريد: support@metahop.sa
-🌐 الموقع: https://am-hup.vercel.app
-🐙 GitHub: https://github.com/mytamwt3-hub/Am-hup
-📋 المشاكل: https://github.com/mytamwt3-hub/Am-hup/issues
+
+### Run Specific Test File
+```bash
+pytest tests/test_auth.py -v
+```
+
+### Run Integration Tests
+```bash
+bash ../tests/run_tests.sh
+```
+
+### View Test Report
+```bash
+cat ../TEST_REPORT.md
 ```
 
 ---
 
-**مرحباً بك في MetaHub Platform! 🚀**
+## Architecture Overview
 
-**آخر تحديث**: 2026-09-05
-**الإصدار**: 1.0 ✅
+### Multi-Tenancy Model
+- **Shared Database** with tenant isolation
+- **Row-Level Security** ready (PostgreSQL)
+- **JWT Authentication** for all API calls
+- **Middleware-enforced** tenant context
 
+### Entity Hierarchy
+```
+Company (Tenant)
+├── Email: company@example.com
+├── Phone: +966501234567
+└── Status: active
+
+    ├── Establishment
+    │   ├── Email: establishment@example.com
+    │   ├── Phone: +966509876543
+    │   └── Status: pending (awaiting company approval)
+    │
+    │   ├── Branch
+    │   │   ├── Email: branch@example.com
+    │   │   ├── Phone: +966505555555
+    │   │   └── Status: pending (awaiting establishment approval)
+    │
+    │   └── Branch 2 ...
+    │
+    └── Establishment 2 ...
+```
+
+### Database Tables
+
+**tenants** - Registry of all companies/establishments/branches
+```sql
+id (PK), name, slug, email, phone, status, plan_type, currency, ...
+```
+
+**users** - Users within each tenant
+```sql
+id (PK), tenant_id (FK), email, password_hash, role, ...
+```
+
+**branches** - Store locations (future: can be under any tenant)
+```sql
+id (PK), tenant_id (FK), name, code, phone, ...
+```
+
+---
+
+## Troubleshooting
+
+### Issue: Database Connection Error
+```
+psycopg2.OperationalError: could not connect to server
+```
+
+**Solution**: Check `.env` file database URL and ensure PostgreSQL is running
+
+### Issue: JWT Token Invalid
+```
+{"detail": "Invalid token"}
+```
+
+**Solution**: Ensure token is not expired and SECRET_KEY is correct
+
+### Issue: Tenant ID Not Found
+```
+{"detail": "Tenant ID not provided"}
+```
+
+**Solution**: Add `X-Tenant-ID` header to your request
+
+### Issue: Access Denied (403)
+```
+{"detail": "Access denied"}
+```
+
+**Solution**: Verify your tenant_id matches the one in your JWT token
+
+---
+
+## Documentation
+
+- **[Architecture](ARCHITECTURE.md)** - System design and multi-tenancy model
+- **[Test Report](TEST_REPORT.md)** - Complete test results
+- **[API Docs](http://localhost:8000/docs)** - Swagger UI
+
+---
+
+## Support
+
+For issues or questions:
+1. Check the [Test Report](TEST_REPORT.md)
+2. Review [Architecture](ARCHITECTURE.md)
+3. Check API documentation: http://localhost:8000/docs
+
+---
+
+**Version**: 2.0.0  
+**Status**: ✅ Production Ready  
+**Last Updated**: 2026-09-05
